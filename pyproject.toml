@@ -42,6 +42,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # Building
+    "build==1.3.0",               # A simple, correct Python build frontend
+
     # Testing
     "pytest==8.3.3",              # Test framework
     "pytest-cov==5.0.0",          # Code coverage reporting
@@ -248,7 +251,13 @@ line-ending = "auto"
 
 [tool.setuptools_scm]
 
+# [tool.setuptools.packages.find]
+# where = ["."]
+# include = ["src*"]
+# exclude = ["tests*"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
-exclude = ["tests*"]
+where = ["src"]
