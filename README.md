@@ -95,7 +95,7 @@ pip install -e ".[dev]"   # Reinstall
     ```
 6. Create PR to merge develop into main
   - Open https://github.com/trz42/cpu/compare/main...develop
-  - Click on ... to start creating a new pull request
+  - Click on "Create pull request" to start creating a new pull request
   - Title: Release vX.Y.Z
   - Description: contents of `CHANGELOG.md` for this release
 7. Get PR merged
