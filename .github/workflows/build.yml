@@ -59,18 +59,13 @@ jobs:
         cat /tmp/changelog.txt >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Upload wheel
+    - name: Upload source and wheel
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
       with:
-        name: python-package-distributions
-        path: dist/*.whl
-        retention-days: 90
-
-    - name: Upload source distribution
-      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-      with:
-        name: python-package-distributions
-        path: dist/*.tar.gz
+        name: dist-package
+        path: |
+          dist/*.whl
+          dist/*.tar.gz
         retention-days: 90
 
     - name: Create GitHub Release
