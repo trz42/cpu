@@ -239,7 +239,8 @@ select = [
     "SIM", # flake8-simplify
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
+    "E501",    # line too long (handled by formatter)
+    "SIM108",  # do not enforce use of ternary operator instead of if-else-block
 ]
 
 [tool.ruff.lint.per-file-ignores]
