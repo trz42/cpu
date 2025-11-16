@@ -47,7 +47,7 @@ def extract_version_changelog(changelog_path: Path, version: str) -> str:
 
     # Find end of version section (next ## heading or end of file)
     for i in range(start_idx + 1, len(lines)):
-        if lines[i].startswith('## '):
+        if lines[i].startswith("## "):
             end_idx = i
             break
 
