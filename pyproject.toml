@@ -14,14 +14,13 @@ dynamic = ["version"]
 description = "CPU - Next generation EESSI build-and-deploy bot"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "GPLv2"}
+license = "GPL-2.0-only"
 authors = [
     {name = "Thomas Roeblitz", email = "thomas.roblitz@uib.no"},
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
