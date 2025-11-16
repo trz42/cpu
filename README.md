@@ -8,7 +8,7 @@ The CPU bot is the next-generation EESSI build and deploy bot. This issue tracks
 
 <br />
 
-[![codecov](https://codecov.io/github/trz42/cpu/graph/badge.svg?token=ZE4FE8WSVJ)](https://codecov.io/github/trz42/cpu)
+[![codecov](https://codecov.io/github/trz42/cpu/branch/develop/graph/badge.svg?token=ZE4FE8WSVJ)](https://codecov.io/github/trz42/cpu)
 
 # Installation with local tagging
 
