@@ -95,6 +95,9 @@ pip install -e ".[dev]"   # Reinstall
    ```
 
 2. Update `CHANGELOG.md` for the release using the template below
+   > [!NOTE]
+   > The format of the first line including two hashmarks, version in brackets
+   > is important for automatic creation of releases!
 
    ```bash
    ## [X.Y.Z] - 2025-11-15
@@ -159,28 +162,7 @@ pip install -e ".[dev]"   # Reinstall
    git push origin vX.Y.Z
    ```
 
-9. Build package locally
-
-   ```bash
-   python3 -m venv ../vbuildcpu
-   source ../vbuildcpu/bin/activate
-   python3 -m pip install --upgrade pip
-   pip install -e ".[dev]"
-   python -m build
-   ls dist
-   deactivate
-   ```
-
-   (Optionally) cleanup virtual environment: `rm -rf ../vbuildcpu`
-
-10. Create release on GitHub: use pushed tag, copy changelog and upload whl and tar.gz
-    - Open [https://github.com/trz42/cpu/releases/new](https://github.com/trz42/cpu/releases/new)
-    - Select the release created above
-    - Title: vX.Y.Z
-    - Description: contents of `CHANGELOG.md` for this release
-    - Upload `cpu-X.Y.Z-py3-none-any.whl` and `cpu-X.Y.Z.tar.gz` from dist directory
-
-11. Try to install locally from GitHub and run some tests
+9. Try to install locally from GitHub and run some tests
 
    ```bash
    python3 -m venv ../vtestinstall
