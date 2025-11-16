@@ -48,3 +48,91 @@ git tag -d v0.0.1-alpha   # Delete old tag
 git tag v0.0.1-alpha      # Tag current commit
 pip install -e ".[dev]"   # Reinstall
 ```
+## Steps to prepare a release
+1. Create branch for release from develop
+   ```bash
+   git checkout develop
+   git pull
+   git checkout -b release_vX.Y.Z origin/develop
+   ```
+2. Update `CHANGELOG.md` for the release using the template below
+   ```bash
+   ## [X.Y.Z] - 2025-11-15
+
+   ### Added
+   - Initial package structure
+   - Basic package installation support
+   - Version management with setuptools-scm
+
+   ### Changed
+   - none
+
+   ### Fixed
+   - none
+   ```
+3. Commit and push the changes
+   ```bash
+   git add CHANGELOG.md
+   git commit -m "update CHANGELOG.md for release vX.Y.Z
+   git push origin release_vX.Y.Z
+   ```
+4. Create PR on GitHub
+  - Open https://github.com/trz42/cpu/pulls
+  - Create a pull request to merge the updated `CHANGELOG.md` into the `develop` branch
+  - Title: Updated CHANGELOG.md for release vX.Y.Z
+  - Description: copy the contents of the CHANGELOG.md for this release
+5. Get PR merged
+  - After it got merged update local git repository
+    ```bash
+    git checkout develop
+    git pull
+    ```
+  - Cleanup branch for release locally and remotely
+    ```bash
+    git branch -d release_vX.Y.Z
+    git push origin :release_vX.Y.Z
+    git branch -r
+    ```
+6. Create PR to merge develop into main
+  - Open https://github.com/trz42/cpu/compare/main...develop
+  - Click on "Create pull request" to start creating a new pull request
+  - Title: Release vX.Y.Z
+  - Description: contents of `CHANGELOG.md` for this release
+7. Get PR merged
+8. Checkout main, pull in changes, tag it and push tag to GitHub
+   ```bash
+   git checkout main
+   git pull
+   git tag
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+9. Build package locally
+   ```bash
+   python3 -m venv ../vbuildcpu
+   source ../vbuildcpu/bin/activate
+   python3 -m pip install --upgrade pip
+   pip install -e ".[dev]"
+   python -m build
+   ls dist
+   deactivate
+   ```
+   (Optionally) cleanup virtual environment: `rm -rf ../vbuildcpu`
+10. Create release on GitHub: use pushed tag, copy changelog and upload whl and tar.gz
+   - Open https://github.com/trz42/cpu/releases/new
+   - Select the release created above
+   - Title: vX.Y.Z
+   - Description: contents of `CHANGELOG.md` for this release
+   - Upload `cpu-X.Y.Z-py3-none-any.whl` and `cpu-X.Y.Z.tar.gz` from dist directory
+11. Try to install locally from GitHub and run some tests
+   ```bash
+   python3 -m venv ../vtestinstall
+   source ../vtestinstall/bin/activate
+   python3 -m pip install --upgrade pip
+   pip install https://github.com/trz42/cpu/releases/download/vX.Y.Z/cpu-X.Y.Z-py3-none-any.whl
+   pip show cpu
+   python -c "import cpu; print(cpu.__version__)"
+   deactivate
+   ```
+   (Optionally) cleanup virtual environment: `rm -rf ../vtestinstall`
+
