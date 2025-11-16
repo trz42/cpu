@@ -71,6 +71,9 @@
         "strong-style": {
             "enabled": true,
             "style": "asterisk"
+        },
+        "no-inline-html": {
+            "enabled": false
         }
     }
 }
