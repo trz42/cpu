@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2025 CPU bot Contributors
+#
+# CPU bot - A next-generation EESSI build-and-deploy bot.
+#
+# GitHub Actions workflow for building distribution packages.
+# Creates wheel and source distribution as downloadable artifacts.
+
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        fetch-depth: 0  # Fetch all history for setuptools-scm
+
+    - name: Set up Python
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      with:
+        python-version: '3.11'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Display build artifacts
+      run: |
+        ls -lh dist/
+
+    - name: Extract version from tag
+      if: startsWith(github.ref, 'refs/tags/')
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Extract changelog
+      if: startsWith(github.ref, 'refs/tags/')
+      id: changelog
+      run: |
+        python .github/scripts/extract_changelog.py ${{ steps.get_version.outputs.VERSION }} > /tmp/changelog.txt
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        cat /tmp/changelog.txt >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Upload wheel
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: python-package-distributions
+        path: dist/*.whl
+        retention-days: 90
+
+    - name: Upload source distribution
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      with:
+        name: python-package-distributions
+        path: dist/*.tar.gz
+        retention-days: 90
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+      with:
+        files: dist/*
+        body: ${{ steps.changelog.outputs.CHANGELOG }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
