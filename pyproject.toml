@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot contributors
+# Copyright (C) 2025 CPU bot Contributors
 #
 # CPU bot - A next-generation EESSI build-and-deploy bot.
 #
@@ -202,10 +202,11 @@ python_functions = ["test_*"]
 asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "-ra",
-    "-q",
+    "-vv",
     "--strict-markers",
     "--strict-config",
     "--cov=cpu",
+    "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",

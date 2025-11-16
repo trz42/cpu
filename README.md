@@ -8,6 +8,8 @@ The CPU bot is the next-generation EESSI build and deploy bot. This issue tracks
 
 <br />
 
+[![codecov](https://codecov.io/github/trz42/cpu/graph/badge.svg?token=ZE4FE8WSVJ)](https://codecov.io/github/trz42/cpu)
+
 # Installation with local tagging
 
 ## Set up development environment
@@ -48,6 +50,16 @@ git tag -d v0.0.1-alpha   # Delete old tag
 git tag v0.0.1-alpha      # Tag current commit
 pip install -e ".[dev]"   # Reinstall
 ```
+## Run unit tests
+- Run all tests
+  ```bash
+  python3 -m venv ../vpytest
+  python3 -m pip install --upgrade pip
+  source ../vpytest/bin/activate
+  pip3 install -e ".[dev]"
+  pytest
+  deactivate
+  ```
 ## Steps to prepare a release
 1. Create branch for release from develop
    ```bash
