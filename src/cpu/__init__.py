@@ -7,6 +7,7 @@ This module provides initialization logic for the package.
 """
 try:
     from importlib.metadata import version
+
     __version__ = version("cpu")
-except Exception:
+except Exception:  # pragma: no cover
     __version__ = "unknown"

@@ -15,11 +15,10 @@ on:
   schedule:
     - cron: '45 7 * * 1'
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
   workflow_dispatch:
-    branches: [ "main", "develop" ]
 
 # Declare default permissions as read only.
 permissions: read-all
