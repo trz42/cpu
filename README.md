@@ -12,7 +12,11 @@ build-and-deploy bot with unified multi-threaded architecture.
 
 <br />
 
+[![Lint](https://github.com/trz42/cpu/actions/workflows/lint.yml/badge.svg)](https://github.com/username/cpu/actions/workflows/lint.yml)
+[![Tests](https://github.com/trz42/cpu/actions/workflows/test.yml/badge.svg)](https://github.com/username/cpu/actions/workflows/test.yml)
 [![codecov](https://codecov.io/github/trz42/cpu/graph/badge.svg?token=ZE4FE8WSVJ)](https://codecov.io/github/trz42/cpu)
+![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-green.svg)
 
 ## Installation with local tagging
 
