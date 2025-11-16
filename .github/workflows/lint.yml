@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2025 CPU bot Contributors
+#
+# CPU bot - A next-generation EESSI build-and-deploy bot.
+#
+# GitHub Actions workflow for linting and code quality checks.
+# Runs on every push and pull request to ensure code standards.
+
+name: Markdown Lint & Spellcheck
+
+on: [push, pull_request, workflow_dispatch]
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+    - name: Set up Python
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      with:
+        python-version: '3.11'
+
+    - name: Install CPU bot (dev)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    # define options to commands via pyproject.toml
+    - name: Code formatting with black
+      run: |
+        black --check --diff .
+    
+    - name: Lint with ruff
+      run: |
+        ruff check
+    
+    - name: Type check with mypy
+      run: |
+        mypy
+    
+    - name: Spell check with codespell
+      run: |
+        codespell
+    
+    - name: Lint markdown files
+      run: |
+        pymarkdown -c .pymarkdown.json scan *.md
