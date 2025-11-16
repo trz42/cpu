@@ -56,14 +56,11 @@ dev = [
     "pyright==1.1.407",           # Static type checker (secondary validation)
     
     # Code quality
-    "ruff==0.14.5",               # Fast Python linter (replaces flake8, isort, etc.)
+    "ruff==0.14.5",               # Fast Python linter (replaces flake8, isort, pylint, etc.)
     "black==24.10.0",             # Code formatter
-    "flake8==7.1.1",              # Python linter
-    "flake8-black==0.3.6",        # plugin for black
-    "pylint==3.3.1",              # Python linter
    
     # Docs quality
-    "mdformat==0.7.22",           # CommonMark compliant Markdown formatter (latest version that supports Python 3.9)
+    "pymarkdownlnt==0.9.33",      # A GitHub Flavored Markdown compliant Markdown linter
     "codespell==2.4.1",           # Fix common misspellings in text files
  
     # Type stubs for third-party libraries
@@ -127,13 +124,6 @@ omit = [
     "*/tests/*",
 #    "*/__init__.py",
 ]
-
-[tool.flake8]
-max-line-length = 120
-extend-ignore = ["E203", "W503"]  # compatible with Black
-select = ["E", "F", "W", "BLK"]   # include Black plugin codes
-exclude = [".git", "__pycache__", "build", "dist"]
-max-complexity = 10
 
 [tool.mypy]
 python_version = "3.9"

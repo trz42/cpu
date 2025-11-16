@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2025 CPU bot Contributors
+#
+# CPU bot - A next-generation EESSI build-and-deploy bot.
+#
+# Git ignore patterns to exclude build artifacts, caches, and temporary files
+# from version control.
+#
 # Python
 __pycache__/
 *.py[codz]

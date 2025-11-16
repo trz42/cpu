@@ -1,0 +1,76 @@
+{
+    "_comment": [
+        "SPDX-License-Identifier: GPL-2.0-only",
+        "Copyright (C) 2025 CPU bot Contributors",
+        "",
+        "CPU bot - A next-generation EESSI build-and-deploy bot.",
+        "",
+        "Configuration file for pymarkdownlnt markdown linter.",
+        "Defines rules and styles for markdown files in the project."
+    ],
+    "plugins": {
+        "line-length": {
+            "enabled": true,
+            "line_length": 120,
+            "heading_line_length": 120,
+            "code_block_line_length": 120
+        },
+        "no-trailing-spaces": {
+            "enabled": true
+        },
+        "no-multiple-blanks": {
+            "enabled": true
+        },
+        "no-missing-space-atx": {
+            "enabled": true
+        },
+        "no-multiple-space-atx": {
+            "enabled": true
+        },
+        "blanks-around-headings": {
+            "enabled": true
+        },
+        "heading-increment": {
+            "enabled": true
+        },
+        "no-duplicate-heading": {
+            "enabled": false
+        },
+        "ul-style": {
+            "enabled": true,
+            "style": "dash"
+        },
+        "ul-indent": {
+            "enabled": true
+        },
+        "no-hard-tabs": {
+            "enabled": true
+        },
+        "no-reversed-links": {
+            "enabled": true
+        },
+        "no-bare-urls": {
+            "enabled": true
+        },
+        "hr-style": {
+            "enabled": true,
+            "style": "---"
+        },
+        "code-block-style": {
+            "enabled": true,
+            "style": "fenced"
+        },
+        "code-fence-style": {
+            "enabled": true,
+            "style": "backtick"
+        },
+        "emphasis-style": {
+            "enabled": true,
+            "style": "asterisk"
+        },
+        "strong-style": {
+            "enabled": true,
+            "style": "asterisk"
+        }
+    }
+}
