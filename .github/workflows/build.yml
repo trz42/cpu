@@ -20,6 +20,9 @@ permissions: read-all
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # Need write for releases
+      # All other permissions remain read-only by default
 
     steps:
     - name: Checkout code
