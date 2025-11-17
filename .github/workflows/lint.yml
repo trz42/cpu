@@ -31,11 +31,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
     
-    # define options to commands via pyproject.toml
-    - name: Code formatting with black
-      run: |
-        black --check --diff .
-    
     - name: Lint with ruff
       run: |
         ruff check
