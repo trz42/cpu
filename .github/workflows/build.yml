@@ -14,8 +14,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# Declare default permissions as read only.
-permissions: read-all
+permissions:
+  contents: write  # Need write for releases
+  # All other permissions remain read-only by default
 
 jobs:
   build:
