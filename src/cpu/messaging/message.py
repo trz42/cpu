@@ -67,8 +67,8 @@ class Message:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     retries: int = 0
-    source: str | None
-    correlation_id: str | None
+    source: str | None = None
+    correlation_id: str | None = None
 
     def __post_init__(self) -> None:
         """Validate message after initialization."""
@@ -162,7 +162,7 @@ def create_webhook_message(
 
 
 def create_job_notification(
-    job_id: str, pr_number: int | None, repository: str | None
+    job_id: str, pr_number: int | None = None, repository: str | None = None
 ) -> Message:
     """
     Create a new job notification message.
