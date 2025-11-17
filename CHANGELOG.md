@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.3] - 2025-11-17
+
+### Added
+
+- instructions to manually create a release
+
+### Changed
+
+- none
+
+### Fixed
+
+- combined source and wheel when uploading artifact in CI to build package
+
 ## [0.0.2] - 2025-11-16
 
 ### Added
