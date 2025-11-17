@@ -11,17 +11,17 @@ Tests the Message class and related factory functions.
 # enable postponed evaluations of annotations
 from __future__ import annotations
 
-import pytest
 import time
-from unittest.mock import patch
+
+import pytest
 
 from cpu.messaging.message import (
+    DeliveryGuarantee,
     Message,
     MessageType,
-    DeliveryGuarantee,
-    create_webhook_message,
     create_job_notification,
     create_status_check_message,
+    create_webhook_message,
 )
 
 
@@ -70,7 +70,7 @@ class TestMessage:
     def test_message_creation_minimal(self) -> None:
         """Test creating message with minimal required arguments."""
         msg = Message(type=MessageType.WEBHOOK, payload={"data": "test"})
-        
+
         assert msg.type == MessageType.WEBHOOK
         assert msg.payload == {"data": "test"}
         assert msg.id is not None
@@ -93,7 +93,7 @@ class TestMessage:
             source="test_source",
             correlation_id="correlation-123"
         )
-        
+
         assert msg.type == MessageType.NEW_JOB
         assert msg.payload == {"job_id": "123"}
         assert msg.delivery == DeliveryGuarantee.EXACTLY_ONCE
@@ -107,7 +107,7 @@ class TestMessage:
         """Test that each message gets a unique ID."""
         msg1 = Message(type=MessageType.WEBHOOK, payload={})
         msg2 = Message(type=MessageType.WEBHOOK, payload={})
-        
+
         assert msg1.id != msg2.id
 
     def test_message_with_custom_delivery(self) -> None:
@@ -117,7 +117,7 @@ class TestMessage:
             payload={},
             delivery=DeliveryGuarantee.EXACTLY_ONCE
         )
-        
+
         assert msg.delivery == DeliveryGuarantee.EXACTLY_ONCE
 
     def test_message_type_validation(self) -> None:
@@ -142,16 +142,16 @@ class TestMessage:
                 "retry": True
             }
         }
-        
+
         msg = Message(type=MessageType.NEW_JOB, payload=payload)
-        
+
         assert msg.payload == payload
         assert msg.payload["metadata"]["tags"] == ["urgent", "build"]
 
     def test_message_with_empty_payload(self) -> None:
         """Test message with empty payload."""
         msg = Message(type=MessageType.CHECK_STATUS, payload={})
-        
+
         assert msg.payload == {}
 
     def test_message_timestamp_automatic(self) -> None:
@@ -159,7 +159,7 @@ class TestMessage:
         before = time.time()
         msg = Message(type=MessageType.WEBHOOK, payload={})
         after = time.time()
-        
+
         assert before <= msg.timestamp <= after
 
 
@@ -169,7 +169,7 @@ class TestMessageMethods:
     def test_increment_retries(self) -> None:
         """Test incrementing retry counter."""
         msg = Message(type=MessageType.WEBHOOK, payload={})
-        
+
         assert msg.retries == 0
         msg.increment_retries()
         assert msg.retries == 1
@@ -181,7 +181,7 @@ class TestMessageMethods:
     def test_is_expired_fresh_message(self) -> None:
         """Test fresh message is not expired."""
         msg = Message(type=MessageType.WEBHOOK, payload={})
-        
+
         assert msg.is_expired(ttl_seconds=3600) is False
         assert msg.is_expired(ttl_seconds=60) is False
         assert msg.is_expired(ttl_seconds=1) is False
@@ -190,7 +190,7 @@ class TestMessageMethods:
         """Test old message is expired."""
         msg = Message(type=MessageType.WEBHOOK, payload={})
         msg.timestamp = time.time() - 7200  # 2 hours ago
-        
+
         assert msg.is_expired(ttl_seconds=3600) is True  # TTL 1 hour
         assert msg.is_expired(ttl_seconds=60) is True    # TTL 1 minute
 
@@ -198,7 +198,7 @@ class TestMessageMethods:
         """Test expiration at exact boundary."""
         msg = Message(type=MessageType.WEBHOOK, payload={})
         msg.timestamp = time.time() - 100  # 100 seconds ago
-        
+
         assert msg.is_expired(ttl_seconds=99) is True
         assert msg.is_expired(ttl_seconds=101) is False
 
@@ -210,9 +210,9 @@ class TestMessageMethods:
             source="test_source",
             correlation_id="corr-123"
         )
-        
+
         data = msg.to_dict()
-        
+
         assert data["id"] == msg.id
         assert data["type"] == "new_job"
         assert data["payload"] == {"job_id": "123"}
@@ -232,9 +232,9 @@ class TestMessageMethods:
             correlation_id="corr"
         )
         msg.increment_retries()
-        
+
         data = msg.to_dict()
-        
+
         assert "id" in data
         assert "type" in data
         assert "payload" in data
@@ -253,10 +253,10 @@ class TestMessageMethods:
             source="test",
             correlation_id="corr"
         )
-        
+
         data = original.to_dict()
         restored = Message.from_dict(data)
-        
+
         assert restored.id == original.id
         assert restored.type == original.type
         assert restored.payload == original.payload
@@ -276,10 +276,10 @@ class TestMessageMethods:
         )
         msg.increment_retries()
         msg.increment_retries()
-        
+
         data = msg.to_dict()
         restored = Message.from_dict(data)
-        
+
         assert restored.id == msg.id
         assert restored.type == msg.type
         assert restored.payload == msg.payload
@@ -298,9 +298,9 @@ class TestMessageMethods:
             "delivery": "at-least-once",
             "timestamp": 1234567890.0
         }
-        
+
         msg = Message.from_dict(data)
-        
+
         assert msg.id == "test-id"
         assert msg.retries == 0  # Default value
         assert msg.source is None
@@ -313,9 +313,9 @@ class TestMessageFactoryFunctions:
     def test_create_webhook_message_default_platform(self) -> None:
         """Test webhook message creation with default platform."""
         webhook_data = {"action": "opened", "number": 123}
-        
+
         msg = create_webhook_message(webhook_data)
-        
+
         assert msg.type == MessageType.WEBHOOK
         assert msg.payload["platform"] == "github"
         assert msg.payload["data"] == webhook_data
@@ -324,9 +324,9 @@ class TestMessageFactoryFunctions:
     def test_create_webhook_message_custom_platform(self) -> None:
         """Test webhook message creation with custom platform."""
         webhook_data = {"action": "merge"}
-        
+
         msg = create_webhook_message(webhook_data, platform="gitlab")
-        
+
         assert msg.type == MessageType.WEBHOOK
         assert msg.payload["platform"] == "gitlab"
         assert msg.payload["data"] == webhook_data
@@ -342,15 +342,15 @@ class TestMessageFactoryFunctions:
                 "user": {"login": "testuser"}
             }
         }
-        
+
         msg = create_webhook_message(webhook_data)
-        
+
         assert msg.payload["data"]["pull_request"]["number"] == 123
 
     def test_create_job_notification_minimal(self) -> None:
         """Test job notification with minimal arguments."""
         msg = create_job_notification(job_id="slurm_123")
-        
+
         assert msg.type == MessageType.NEW_JOB
         assert msg.payload["job_id"] == "slurm_123"
         assert msg.payload["pr_number"] is None
@@ -364,7 +364,7 @@ class TestMessageFactoryFunctions:
             pr_number=789,
             repository="EESSI/cpu"
         )
-        
+
         assert msg.type == MessageType.NEW_JOB
         assert msg.payload["job_id"] == "slurm_456"
         assert msg.payload["pr_number"] == 789
@@ -374,7 +374,7 @@ class TestMessageFactoryFunctions:
     def test_create_status_check_message(self) -> None:
         """Test status check message creation."""
         msg = create_status_check_message()
-        
+
         assert msg.type == MessageType.CHECK_STATUS
         assert msg.payload == {}
         assert msg.source == "Scheduler"
@@ -384,15 +384,15 @@ class TestMessageFactoryFunctions:
         webhook = create_webhook_message({"test": 1})
         job = create_job_notification("job_1")
         status = create_status_check_message()
-        
+
         # All should be Message instances
         assert isinstance(webhook, Message)
         assert isinstance(job, Message)
         assert isinstance(status, Message)
-        
+
         # All should have unique IDs
         assert webhook.id != job.id != status.id
-        
+
         # All should have timestamps
         assert webhook.timestamp > 0
         assert job.timestamp > 0
@@ -409,17 +409,17 @@ class TestMessageEdgeCases:
             payload={},
             source=None
         )
-        
+
         assert msg.source is None
 
     def test_message_payload_shares_reference(self) -> None:
         """Test that message payload shares reference with original dict (expected Python behavior)."""
         original_payload = {"key": "value"}
         msg = Message(type=MessageType.WEBHOOK, payload=original_payload)
-        
+
         # Modify message payload
         msg.payload["new_key"] = "new_value"
-        
+
         # Original is also modified (they share the same dict reference)
         # This is expected Python behavior for mutable objects
         assert "new_key" in original_payload
@@ -428,9 +428,9 @@ class TestMessageEdgeCases:
     def test_message_with_large_payload(self) -> None:
         """Test message with large payload."""
         large_payload = {f"key_{i}": f"value_{i}" for i in range(1000)}
-        
+
         msg = Message(type=MessageType.WEBHOOK, payload=large_payload)
-        
+
         assert len(msg.payload) == 1000
         assert msg.payload["key_500"] == "value_500"
 
@@ -449,10 +449,10 @@ class TestMessageEdgeCases:
                 "url": "https://example.com/api?param=value&foo=bar#section",
             }
         )
-        
+
         data = msg.to_dict()
         restored = Message.from_dict(data)
-        
+
         # Verify all special characters are preserved
         assert restored.payload["escape_sequences"] == msg.payload["escape_sequences"]
         assert restored.payload["accented_chars"] == msg.payload["accented_chars"]
@@ -467,10 +467,10 @@ class TestMessageEdgeCases:
         """Test multiple messages of same type are independent."""
         msg1 = Message(type=MessageType.NEW_JOB, payload={"job_id": "1"})
         msg2 = Message(type=MessageType.NEW_JOB, payload={"job_id": "2"})
-        
+
         msg1.increment_retries()
         msg1.increment_retries()
-        
+
         assert msg1.retries == 2
         assert msg2.retries == 0  # Should not be affected
         assert msg1.id != msg2.id

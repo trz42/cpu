@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class DeliveryGuarantee(Enum):
@@ -62,13 +62,13 @@ class Message:
     """
 
     type: MessageType
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     delivery: DeliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     retries: int = 0
-    source: Optional[str] = None
-    correlation_id: Optional[str] = None
+    source: str | None
+    correlation_id: str | None
 
     def __post_init__(self) -> None:
         """Validate message after initialization."""
@@ -94,7 +94,7 @@ class Message:
         age = time.time() - self.timestamp
         return age > ttl_seconds
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert message to dictionary for serialization.
 
@@ -113,7 +113,7 @@ class Message:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Message:
+    def from_dict(cls, data: dict[str, Any]) -> Message:
         """
         Create message from dictionary.
 
@@ -136,9 +136,9 @@ class Message:
 
 
 # Type aliases for common message payloads
-WebhookPayload = Dict[str, Any]
-JobPayload = Dict[str, Any]
-TaskPayload = Dict[str, Any]
+WebhookPayload = dict[str, Any]
+JobPayload = dict[str, Any]
+TaskPayload = dict[str, Any]
 
 
 def create_webhook_message(
@@ -162,7 +162,7 @@ def create_webhook_message(
 
 
 def create_job_notification(
-    job_id: str, pr_number: Optional[int] = None, repository: Optional[str] = None
+    job_id: str, pr_number: int | None, repository: str | None
 ) -> Message:
     """
     Create a new job notification message.
