@@ -14,13 +14,17 @@ on:
       - 'v*'
   workflow_dispatch:
 
-permissions:
+# Declare default permissions as read only.
+permissions: read-all
   contents: write  # Need write for releases
   # All other permissions remain read-only by default
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # Need write for releases
+      # All other permissions remain read-only by default
 
     steps:
     - name: Checkout code
