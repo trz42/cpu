@@ -16,8 +16,6 @@ on:
 
 # Declare default permissions as read only.
 permissions: read-all
-  contents: write  # Need write for releases
-  # All other permissions remain read-only by default
 
 jobs:
   build:
