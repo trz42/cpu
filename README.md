@@ -162,6 +162,9 @@ pip install -e ".[dev]"   # Reinstall
    git push origin vX.Y.Z
    ```
 
+   > [!NOTE]
+   > See below for instructions to manually create the release including packages in case the CI fails.
+
 9. Try to install locally from GitHub and run some tests
 
    ```bash
@@ -175,3 +178,29 @@ pip install -e ".[dev]"   # Reinstall
    ```
 
    (Optionally) cleanup virtual environment: `rm -rf ../vtestinstall`
+
+### Creating release manually
+
+If the step in which one pushes a tag to GitHub does not result in the automatic creation of a release,
+perform the following steps to create it manually.
+
+1. Build package locally
+
+   ```bash
+   python3 -m venv ../vbuildcpu
+   source ../vbuildcpu/bin/activate
+   python3 -m pip install --upgrade pip
+   pip install -e ".[dev]"
+   python -m build
+   ls dist
+   deactivate
+   ```
+
+   (Optionally) cleanup virtual environment: `rm -rf ../vbuildcpu`
+
+2. Create release on GitHub: use pushed tag, copy changelog and upload whl and tar.gz
+   - Open [https://github.com/trz42/cpu/releases/new](https://github.com/trz42/cpu/releases/new)
+   - Select the release created above
+   - Title: vX.Y.Z
+   - Description: contents of `CHANGELOG.md` for this release
+   - Upload `cpu-X.Y.Z-py3-none-any.whl` and `cpu-X.Y.Z.tar.gz` from dist directory
