@@ -56,7 +56,6 @@ dev = [
     
     # Code quality
     "ruff==0.14.5",               # Fast Python linter (replaces flake8, isort, pylint, etc.)
-    "black==24.10.0",             # Code formatter
    
     # Docs quality
     "pymarkdownlnt==0.9.33",      # A GitHub Flavored Markdown compliant Markdown linter
@@ -79,20 +78,6 @@ Issues = "https://github.com/trz42/cpu/issues"
 # ----------------------------
 # Tool configuration sections
 # ----------------------------
-
-[tool.black]
-line-length = 120
-target-version = ["py39", "py310", "py311", "py312"]
-exclude = '''
-/(
-    \.git
-  | \.mypy_cache
-  | \.pytest_cache
-  | \.venv
-  | build
-  | dist
-)/
-'''
 
 [tool.codespell]
 skip = ".git,*.lock,dist,build,*.egg-info,venv,env,.venv,.mypy_cache,.pytest_cache,.ruff_cache,htmlcov,__pycache__,*.png,*.jpg,*.svg,*.gif"
