@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.4] - 2025-11-18
+
+### Added
+
+- code for basic Message and Message interfaces
+- unit tests for the above code
+
+### Changed
+
+- removed black formatter check (superseeded by ruff)
+
+### Fixed
+
+- none
+
 ## [0.0.3] - 2025-11-17
 
 ### Added
