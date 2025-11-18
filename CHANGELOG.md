@@ -9,7 +9,7 @@
 
 ### Changed
 
-- removed black formatter check (superseeded by ruff)
+- removed black formatter check (superseded by ruff)
 
 ### Fixed
 
