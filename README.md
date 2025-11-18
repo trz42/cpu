@@ -1,4 +1,4 @@
-# CPU bot - The next-generation EESSI build-and-deplot bot
+# CPU - The next-generation EESSI build-and-deplot bot
 
 <img width="128" height="128" alt="Image"
      src="https://github.com/user-attachments/assets/6b2d7121-fe49-40c8-b3ed-b935e537853c"
