@@ -6,9 +6,16 @@
 
 <br />
 
-The CPU bot is the next-generation EESSI build and deploy bot. This issue tracks the creation
-of the initial directory structure and skeleton files for the CPU bot - the refactored EESSI
-build-and-deploy bot with unified multi-threaded architecture.
+CPU is the next-generation EESSI build-and-deploy bot. It tries to achieve three main
+objectives:
+- refactor the design of the first-generation EESSI build-and-deploy bot towards a unified,
+  multi-threaded and customizable architecture,
+- prepare for more security-focused scenarios, so it can be employed by a wide range of users
+  and establish higher trust on what it builds, _and_
+- improve user-friendliness concerning installation, configuration and monitoring.
+
+Below, you find information on how to set up the build environment, test changes and create
+a new release.
 
 <br />
 

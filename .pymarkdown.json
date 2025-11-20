@@ -1,9 +1,9 @@
 {
     "_comment": [
         "SPDX-License-Identifier: GPL-2.0-only",
-        "Copyright (C) 2025 CPU bot Contributors",
+        "Copyright (C) 2025 CPU contributors",
         "",
-        "CPU bot - A next-generation EESSI build-and-deploy bot.",
+        "CPU - The next-generation EESSI build-and-deploy bot.",
         "",
         "Configuration file for pymarkdownlnt markdown linter.",
         "Defines rules and styles for markdown files in the project."
