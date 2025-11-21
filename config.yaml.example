@@ -1,0 +1,19 @@
+# CPU Bot Configuration Example
+# This is a minimal configuration file for the CPU bot
+
+bot:
+  # Number of worker threads for processing tasks
+  num_workers: 4
+  
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: INFO
+  
+  # Enable terminal effects for banner (requires: pip install cpu[effects])
+  # Set to true for animated banner on startup
+  banner_effects: false
+  
+  # Banner effect type: Slide, Spotlights, Rain, Waves, etc.
+  # Only used if banner_effects is true
+  banner_effect_type: Slide
+  
+  # Other settings can be added here as needed
