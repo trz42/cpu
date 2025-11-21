@@ -115,11 +115,12 @@ class Config:
                 f"Failed to read configuration file {self.config_file}: {err}"
             ) from err
 
+        # Mark as loaded before applying overrides (so get() works in _apply_env_overrides)
+        self._loaded = True
+
         # Apply environment variable overrides
         if self.env_prefix is not None:
             self._apply_env_overrides()
-
-        self._loaded = True
 
     def get(self, key: str, default: Any = None) -> Any:
         """
