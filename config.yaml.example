@@ -14,6 +14,6 @@ bot:
   
   # Banner effect type: Slide, Spotlights, Rain, Waves, etc.
   # Only used if banner_effects is true
-  banner_effect_type: Slide
+  banner_effect_type: Beams
   
   # Other settings can be added here as needed
