@@ -9,6 +9,7 @@ End-to-end tests for the main application CLI.
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -537,10 +538,9 @@ bot:
         # Create a proper iterator that will execute the loop body
         frames = ["frame1", "frame2", "frame3"]
 
-        def mock_iter(_):
+        def mock_iter(_: Any) -> Iterator[str]:
             # This actually yields frames so the for loop executes
-            for frame in frames:
-                yield frame
+            yield from frames
 
         mock_effect_instance.__iter__ = mock_iter
 
@@ -551,7 +551,7 @@ bot:
 
         # Mock importlib.import_module to return our mock
         import importlib
-        # original_import = importlib.import_module
+        original_import = importlib.import_module
 
         def mock_import(name: str) -> Any:
             if "terminaltexteffects" in name:
@@ -657,9 +657,11 @@ bot:
   num_workers: 4
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-            with pytest.raises(SystemExit) as exc_info:
-                run()
+        with (
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            run()
 
             # Should exit with 0 for success
             assert exc_info.value.code == 0

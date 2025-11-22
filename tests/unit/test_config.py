@@ -11,12 +11,10 @@ Tests configuration loading from YAML files with environment variable overrides.
 from __future__ import annotations
 
 from pathlib import Path
-
+from typing import Any
 from unittest.mock import patch
 
 import pytest
-
-import yaml
 
 from cpu.config.config import Config, ConfigError, ConfigValidationError
 
@@ -232,7 +230,7 @@ bot:
 class TestEnvironmentVariableOverrides:
     """Tests for environment variable overrides."""
 
-    def test_apply_env_overrides_with_none_prefix(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_apply_env_overrides_with_none_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test _apply_env_overrides returns early when env_prefix is None."""
         config = Config(config_file=None, env_prefix=None)
         config._loaded = True
@@ -391,10 +389,10 @@ class TestConfigValidation:
     bot:
       num_workers: 4
     """)
-        
+
         config = Config(config_file=config_file)
         # Don't call load()
-        
+
         # Should raise ConfigError (line 210-211)
         with pytest.raises(ConfigError, match="not loaded"):
             config.validate(["bot.num_workers"])
@@ -737,9 +735,11 @@ bot:
                 raise PermissionError("Permission denied")
             return original_open(*args, **kwargs)
 
-        with patch("builtins.open", side_effect=mock_open):
-            with pytest.raises(ConfigError, match="Failed to open"):
-                config.load()
+        with (
+            patch("builtins.open", side_effect=mock_open),
+            pytest.raises(ConfigError, match="Failed to open"),
+        ):
+            config.load()
 
     def test_file_io_error(self, tmp_path: Path) -> None:
         """Test handling when file read fails with IO error."""
@@ -757,12 +757,14 @@ bot:
 
         def mock_open(*args: Any, **kwargs: Any) -> Any:
             if str(config_file) in str(args[0]):
-                raise IOError("Disk read error")
+                raise OSError("Disk read error")
             return original_open(*args, **kwargs)
 
-        with patch("builtins.open", side_effect=mock_open):
-            with pytest.raises(ConfigError, match="Failed to open"):
-                config.load()
+        with (
+            patch("builtins.open", side_effect=mock_open),
+            pytest.raises(ConfigError, match="Failed to open"),
+        ):
+            config.load()
 
     def test_unexpected_parsing_error(self, tmp_path: Path) -> None:
         """Test handling of unexpected errors during YAML parsing."""
@@ -775,11 +777,11 @@ bot:
         config = Config(config_file=config_file)
 
         # Mock yaml.safe_load to raise unexpected error
-        original_safe_load = yaml.safe_load
-
         def mock_safe_load(_: Any) -> Any:
             raise RuntimeError("Unexpected parsing error")
 
-        with patch("yaml.safe_load", side_effect=mock_safe_load):
-            with pytest.raises(ConfigError, match="Unexpected error loading"):
-                config.load()
+        with (
+            patch("yaml.safe_load", side_effect=mock_safe_load),
+            pytest.raises(ConfigError, match="Unexpected error loading"),
+        ):
+            config.load()
