@@ -11,6 +11,8 @@ Tests configuration loading from YAML files with environment variable overrides.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -96,7 +98,7 @@ bot:
 
         config = Config(config_file=config_file)
 
-        with pytest.raises(ConfigError, match="Configuration file not found"):
+        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
             config.load()
 
     def test_load_invalid_yaml(self, tmp_path: Path) -> None:
@@ -228,6 +230,19 @@ bot:
 class TestEnvironmentVariableOverrides:
     """Tests for environment variable overrides."""
 
+    def test_apply_env_overrides_with_none_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test _apply_env_overrides returns early when env_prefix is None."""
+        config = Config(config_file=None, env_prefix=None)
+        config._loaded = True
+
+        # set env var that would normally override
+        monkeypatch.setenv("CPU_BOT__NUM_WORKERS", "42")
+
+        # call _apply_env_overrides directly
+        config._apply_env_overrides()
+
+        assert config.get("bot.num_workers") is None
+
     def test_env_override_simple_value(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test environment variable overrides simple config value."""
         config_file = tmp_path / "config.yaml"
@@ -310,6 +325,24 @@ bot:
         # Should use YAML value, not environment
         assert config.get("bot.num_workers") == 4
 
+    def test_wrong_prefix_env_vars_ignored(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that env vars with wrong prefix are ignored."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+    bot:
+      num_workers: 4
+    """)
+
+        # Set CPU_ prefix vars
+        monkeypatch.setenv("CPU_BOT__NUM_WORKERS", "16")
+
+        # But use different prefix
+        config = Config(config_file=config_file, env_prefix="CUSTOM_")
+        config.load()
+
+        # Should ignore CPU_ vars and use YAML value
+        assert config.get("bot.num_workers") == 4
+
     def test_env_override_preserves_underscores_in_keys(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that single underscores in key names are preserved."""
         config_file = tmp_path / "config.yaml"
@@ -348,6 +381,21 @@ class TestConfigValidation:
 
         result = config.validate(required_keys=["bot.num_workers"])
         assert result is True
+
+    def test_validate_before_load_raises_error(self, tmp_path: Path) -> None:
+        """Test validate raises error when config not loaded."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+    bot:
+      num_workers: 4
+    """)
+
+        config = Config(config_file=config_file)
+        # Don't call load()
+
+        # Should raise ConfigError (line 210-211)
+        with pytest.raises(ConfigError, match="not loaded"):
+            config.validate(["bot.num_workers"])
 
     def test_validate_returns_false_without_raising(self, tmp_path: Path) -> None:
         """Test validation returns False when raise_on_error=False."""
@@ -582,6 +630,25 @@ bot:
         result = config.get("bot.timeout")
         assert result == "not_a_float"
 
+    def test_env_override_with_invalid_string_conversion(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test env override when string conversion fails."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  name: "original"
+""")
+
+        # Set environment variable with non-numeric value for string field
+        monkeypatch.setenv("CPU_BOT__NAME", "not_a_number")
+
+        config = Config(config_file=config_file, env_prefix="CPU_")
+        config.load()
+
+        # Should hit else branch at line 292 (string type)
+        assert config.get("bot.name") == "not_a_number"
+
     def test_set_value_with_non_dict_intermediate(self, tmp_path: Path) -> None:
         """Test _set_value when intermediate path is not a dict."""
         config_file = tmp_path / "config.yaml"
@@ -602,6 +669,23 @@ bot:
 
         # Value should not be set because workers is not a dict
         assert config._data["bot"]["workers"] == "simple_value"
+
+    def test_set_value_creates_nested_dict(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test _set_value creates missing nested dicts (line 310)."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+    bot:
+      workers: 4
+    """)
+
+        # Env var for nested key that doesn't exist in YAML
+        monkeypatch.setenv("CPU_BOT__NEW__NESTED__VALUE", "test")
+
+        config = Config(config_file=config_file, env_prefix="CPU_")
+        config.load()
+
+        # Should create bot.new.nested structure (line 310)
+        assert config.get("bot.new.nested.value") == "test"
 
     def test_validate_with_raise_on_error_false_and_not_loaded(self, tmp_path: Path) -> None:
         """Test validate returns False when config not loaded and raise_on_error=False."""
@@ -628,3 +712,76 @@ bot:
 
         # Should handle empty file gracefully (line 113-114: or {})
         assert config._data == {}
+
+class TestConfigFileErrorHandling:
+    """Test specific file error scenarios."""
+
+    def test_file_permission_denied(self, tmp_path: Path) -> None:
+        """Test handling when file exists but cannot be opened (permission denied)."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock open to raise PermissionError
+        import builtins
+        original_open = builtins.open
+
+        def mock_open(*args: Any, **kwargs: Any) -> Any:
+            if str(config_file) in str(args[0]):
+                raise PermissionError("Permission denied")
+            return original_open(*args, **kwargs)
+
+        with (
+            patch("builtins.open", side_effect=mock_open),
+            pytest.raises(ConfigError, match="Failed to open"),
+        ):
+            config.load()
+
+    def test_file_io_error(self, tmp_path: Path) -> None:
+        """Test handling when file read fails with IO error."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock open to raise IOError
+        import builtins
+        original_open = builtins.open
+
+        def mock_open(*args: Any, **kwargs: Any) -> Any:
+            if str(config_file) in str(args[0]):
+                raise OSError("Disk read error")
+            return original_open(*args, **kwargs)
+
+        with (
+            patch("builtins.open", side_effect=mock_open),
+            pytest.raises(ConfigError, match="Failed to open"),
+        ):
+            config.load()
+
+    def test_unexpected_parsing_error(self, tmp_path: Path) -> None:
+        """Test handling of unexpected errors during YAML parsing."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock yaml.safe_load to raise unexpected error
+        def mock_safe_load(_: Any) -> Any:
+            raise RuntimeError("Unexpected parsing error")
+
+        with (
+            patch("yaml.safe_load", side_effect=mock_safe_load),
+            pytest.raises(ConfigError, match="Unexpected error loading"),
+        ):
+            config.load()

@@ -251,17 +251,18 @@ def main() -> int:
         return 0
 
     except FileNotFoundError as err:
-        print(f"Error: Configuration file not found: {err}", file=sys.stderr)
-        return 1
-
-    except ConfigError as err:
-        print(f"Error: Configuration error: {err}", file=sys.stderr)
+        #print(f"Error: Configuration file not found: {err}", file=sys.stderr)
+        print(f"Error: {err}", file=sys.stderr)
         return 1
 
     except ConfigValidationError as err:
         print(f"Error: Configuration validation failed: {err}", file=sys.stderr)
         print("\nRequired configuration keys:", file=sys.stderr)
         print("  - bot.num_workers: Number of worker threads", file=sys.stderr)
+        return 1
+
+    except ConfigError as err:
+        print(f"Error: Configuration error: {err}", file=sys.stderr)
         return 1
 
     except KeyboardInterrupt:

@@ -95,24 +95,34 @@ class Config:
         Can be called multiple times to reload configuration.
 
         Raises:
-            ConfigError: If config file doesn't exist or cannot be parsed
+            ConfigError: If config file cannot be parsed
+            FileNotFoundError: If config file doesn't exist
         """
         # Load from YAML file
         if not self.config_file.exists():
-            raise ConfigError(
+            raise FileNotFoundError(
                 f"Configuration file not found: {self.config_file}"
             )
 
         try:
             with open(self.config_file, encoding="utf-8") as file:
-                self._data = yaml.safe_load(file) or {}
+                file_content = file.read()
+        except OSError as err:
+            # covers permission denied, IO errors, etc.
+            raise ConfigError(
+                f"Failed to open configuration file {self.config_file}: {err}"
+            ) from err
+
+        try:
+            self._data = yaml.safe_load(file_content) or {}
         except yaml.YAMLError as err:
             raise ConfigError(
                 f"Failed to parse configuration file {self.config_file}: {err}"
             ) from err
         except Exception as err:
+            # catch any other unexpected errors during parsing
             raise ConfigError(
-                f"Failed to read configuration file {self.config_file}: {err}"
+                f"Unexpected error loading configuration file {self.config_file}: {err}"
             ) from err
 
         # Mark as loaded before applying overrides (so get() works in _apply_env_overrides)

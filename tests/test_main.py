@@ -9,6 +9,7 @@ End-to-end tests for the main application CLI.
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -518,12 +519,12 @@ bot:
 """)
 
         # Mock the terminaltexteffects module
-        import sys
+        #import sys
         from unittest.mock import MagicMock
 
-        # Create mock effect class and module
-        mock_frame = MagicMock()
-        mock_frame.__iter__ = lambda: iter(["frame1", "frame2"])
+        # # Create mock effect class and module
+        # mock_frame = MagicMock()
+        # mock_frame.__iter__ = lambda: iter(["frame1", "frame2"])
 
         mock_terminal = MagicMock()
         mock_terminal.__enter__ = lambda self: self
@@ -532,7 +533,16 @@ bot:
 
         mock_effect_instance = MagicMock()
         mock_effect_instance.terminal_output = lambda: mock_terminal
-        mock_effect_instance.__iter__ = lambda: iter(["frame1", "frame2"])
+        # mock_effect_instance.__iter__ = lambda: iter(["frame1", "frame2"])
+
+        # Create a proper iterator that will execute the loop body
+        frames = ["frame1", "frame2", "frame3"]
+
+        def mock_iter(_: Any) -> Iterator[str]:
+            # This actually yields frames so the for loop executes
+            yield from frames
+
+        mock_effect_instance.__iter__ = mock_iter
 
         mock_effect_class = MagicMock(return_value=mock_effect_instance)
 
@@ -557,9 +567,11 @@ bot:
         # Should succeed
         assert exit_code == 0
 
-        # Verify effect was called
+        # # Verify effect was called
+        # Verify effect was created and terminal.print was called for each frame
         mock_effect_class.assert_called_once()
-
+        # terminal.print should be called once per frame
+        assert mock_terminal.print.call_count == len(frames)
 
 class TestConfigErrorHandling:
     """Test Config-specific error handling."""
@@ -581,6 +593,56 @@ bot:
         captured = capsys.readouterr()
         assert "configuration error" in captured.err.lower()
 
+    def test_config_error_handler_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test ConfigError exception handler prints to stderr (lines 257-259)."""
+        config_file = tmp_path / "bad.yaml"
+        config_file.write_text("invalid: yaml: [unclosed")
+
+        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+            exit_code = main()
+
+        assert exit_code == 1
+
+        captured = capsys.readouterr()
+
+        # Verify it goes to stderr and has expected format
+        assert "Error: Configuration error:" in captured.err
+
+    def test_config_validation_error_handler_output(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Test ConfigValidationError handler with help text (lines 262-265)."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  log_level: INFO
+  # Missing num_workers
+""")
+
+        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+            exit_code = main()
+
+        assert exit_code == 1
+
+        captured = capsys.readouterr()
+
+        # Verify all three print statements are executed
+        assert "Error: Configuration validation failed:" in captured.err
+        assert "Required configuration keys:" in captured.err
+        assert "bot.num_workers: Number of" in captured.err
+
+    def test_file_not_found_handler_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test FileNotFoundError handler output (lines 254-255)."""
+        config_file = tmp_path / "nonexistent.yaml"
+
+        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+            exit_code = main()
+
+        assert exit_code == 1
+
+        captured = capsys.readouterr()
+        assert "Error: Configuration file not found:" in captured.err
+
 
 class TestRunFunction:
     """Test the run() entry point function."""
@@ -595,9 +657,11 @@ bot:
   num_workers: 4
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-            with pytest.raises(SystemExit) as exc_info:
-                run()
+        with (
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            run()
 
             # Should exit with 0 for success
             assert exc_info.value.code == 0
