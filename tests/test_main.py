@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -409,7 +410,7 @@ bot:
         # Mock Config.load to raise KeyboardInterrupt
         from cpu.config.config import Config
 
-        def mock_load(_):
+        def mock_load(_: None) -> None:
             raise KeyboardInterrupt()
 
         with (
@@ -435,7 +436,7 @@ bot:
         # Mock Config.load to raise unexpected error
         from cpu.config.config import Config
 
-        def mock_load():
+        def mock_load() -> None:
             raise RuntimeError("Unexpected error occurred")
 
         with (
@@ -482,7 +483,7 @@ bot:
         import importlib
         original_import = importlib.import_module
 
-        def mock_import(name):
+        def mock_import(name: str) -> Any:
             if "terminaltexteffects" in name:
                 raise RuntimeError("Generic error during import")
             return original_import(name)
@@ -542,7 +543,7 @@ bot:
         import importlib
         original_import = importlib.import_module
 
-        def mock_import(name):
+        def mock_import(name: str) -> Any:
             if "terminaltexteffects" in name:
                 return mock_module
             return original_import(name)
