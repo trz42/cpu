@@ -408,14 +408,15 @@ bot:
 
         # Mock Config.load to raise KeyboardInterrupt
         from cpu.config.config import Config
-        original_load = Config.load
 
-        def mock_load(self):
+        def mock_load(_):
             raise KeyboardInterrupt()
 
-        with patch.object(Config, "load", mock_load):
-            with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-                exit_code = main()
+        with (
+            patch.object(Config, "load", mock_load),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
+            exit_code = main()
 
         # Should exit with 130 (standard for SIGINT)
         assert exit_code == 130
@@ -434,12 +435,14 @@ bot:
         # Mock Config.load to raise unexpected error
         from cpu.config.config import Config
 
-        def mock_load(self):
+        def mock_load():
             raise RuntimeError("Unexpected error occurred")
 
-        with patch.object(Config, "load", mock_load):
-            with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-                exit_code = main()
+        with (
+            patch.object(Config, "load", mock_load),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
+            exit_code = main()
 
         # Should exit with non-zero
         assert exit_code == 1
@@ -484,9 +487,11 @@ bot:
                 raise RuntimeError("Generic error during import")
             return original_import(name)
 
-        with patch("importlib.import_module", side_effect=mock_import):
-            with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-                exit_code = main()
+        with (
+            patch("importlib.import_module", side_effect=mock_import),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
+            exit_code = main()
 
         # Should succeed with fallback
         assert exit_code == 0
@@ -501,7 +506,7 @@ bot:
 class TestBannerEffectsImportSuccess:
     """Test successful banner effects import and execution."""
 
-    def test_banner_effects_successful_execution(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_banner_effects_successful_execution(self, tmp_path: Path) -> None:
         """Test banner effects when terminaltexteffects is available and works."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text("""
@@ -517,38 +522,40 @@ bot:
 
         # Create mock effect class and module
         mock_frame = MagicMock()
-        mock_frame.__iter__ = lambda self: iter(["frame1", "frame2"])
-        
+        mock_frame.__iter__ = lambda: iter(["frame1", "frame2"])
+
         mock_terminal = MagicMock()
         mock_terminal.__enter__ = lambda self: self
-        mock_terminal.__exit__ = lambda self, *args: None
+        mock_terminal.__exit__ = lambda: None
         mock_terminal.print = MagicMock()
-        
+
         mock_effect_instance = MagicMock()
         mock_effect_instance.terminal_output = lambda: mock_terminal
-        mock_effect_instance.__iter__ = lambda self: iter(["frame1", "frame2"])
-        
+        mock_effect_instance.__iter__ = lambda: iter(["frame1", "frame2"])
+
         mock_effect_class = MagicMock(return_value=mock_effect_instance)
-        
+
         mock_module = MagicMock()
         mock_module.Slide = mock_effect_class
-        
+
         # Mock importlib.import_module to return our mock
         import importlib
         original_import = importlib.import_module
-        
+
         def mock_import(name):
             if "terminaltexteffects" in name:
                 return mock_module
             return original_import(name)
-        
-        with patch("importlib.import_module", side_effect=mock_import):
-            with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
-                exit_code = main()
-        
+
+        with (
+            patch("importlib.import_module", side_effect=mock_import),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
+            exit_code = main()
+
         # Should succeed
         assert exit_code == 0
-        
+
         # Verify effect was called
         mock_effect_class.assert_called_once()
 
@@ -580,7 +587,7 @@ class TestRunFunction:
     def test_run_function_exits(self, tmp_path: Path) -> None:
         """Test that run() function calls sys.exit with main's return code."""
         from cpu.__main__ import run
-        
+
         config_file = tmp_path / "config.yaml"
         config_file.write_text("""
 bot:
@@ -590,6 +597,6 @@ bot:
         with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 run()
-            
+
             # Should exit with 0 for success
             assert exc_info.value.code == 0
