@@ -537,3 +537,94 @@ class TestConfigRepr:
 
         repr_after = repr(config)
         assert "loaded" in repr_after.lower()
+
+
+class TestConfigEdgeCasesForCoverage:
+    """Additional tests to improve coverage."""
+
+    def test_env_override_with_invalid_int_conversion(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test env override when int conversion fails."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        # Set environment variable with non-numeric value for int field
+        monkeypatch.setenv("CPU_BOT__NUM_WORKERS", "not_a_number")
+
+        config = Config(config_file=config_file, env_prefix="CPU_")
+        config.load()
+
+        # Should keep as string when conversion fails (line 275-276)
+        result = config.get("bot.num_workers")
+        assert result == "not_a_number"
+
+    def test_env_override_with_invalid_float_conversion(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test env override when float conversion fails."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  timeout: 30.5
+""")
+
+        # Set environment variable with non-numeric value for float field
+        monkeypatch.setenv("CPU_BOT__TIMEOUT", "not_a_float")
+
+        config = Config(config_file=config_file, env_prefix="CPU_")
+        config.load()
+
+        # Should keep as string when conversion fails (line 280-283)
+        result = config.get("bot.timeout")
+        assert result == "not_a_float"
+
+    def test_set_value_with_non_dict_intermediate(self, tmp_path: Path) -> None:
+        """Test _set_value when intermediate path is not a dict."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  workers: 4
+""")
+
+        config = Config(config_file=config_file, env_prefix=None)
+        config.load()
+
+        # Manually set bot.workers to a non-dict value
+        config._data["bot"]["workers"] = "simple_value"
+
+        # Try to set a nested value under workers (which is now a string, not a dict)
+        # This should trigger line 301-304 (return early if not a dict)
+        config._set_value("bot.workers.nested", "value")
+
+        # Value should not be set because workers is not a dict
+        assert config._data["bot"]["workers"] == "simple_value"
+
+    def test_validate_with_raise_on_error_false_and_not_loaded(self, tmp_path: Path) -> None:
+        """Test validate returns False when config not loaded and raise_on_error=False."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+        # Don't call load()
+
+        # Should return False without raising (line 200-204)
+        result = config.validate(["bot.num_workers"], raise_on_error=False)
+        assert result is False
+
+    def test_load_empty_file_returns_empty_dict(self, tmp_path: Path) -> None:
+        """Test loading completely empty YAML file."""
+        config_file = tmp_path / "empty.yaml"
+        config_file.write_text("")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        # Should handle empty file gracefully (line 113-114: or {})
+        assert config._data == {}
