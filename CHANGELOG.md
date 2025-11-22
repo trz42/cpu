@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.5] - 2025-11-22
+
+### Added
+
+- code for basic configuration management
+  - including example configuration file
+- unit tests for the configuration management code
+- simple module for main application and a script to run it
+- end-to-end tests for the main application module
+- support for TerminalTextEffects (at startup)
+
+### Changed
+
+- polished header
+- list objectives in README.md
+- improved test coverage
+
+### Fixed
+
+- none
+
 ## [0.0.4] - 2025-11-18
 
 ### Added
