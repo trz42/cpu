@@ -95,11 +95,12 @@ class Config:
         Can be called multiple times to reload configuration.
 
         Raises:
-            ConfigError: If config file doesn't exist or cannot be parsed
+            ConfigError: If config file cannot be parsed
+            FileNotFoundError: If config file doesn't exist
         """
         # Load from YAML file
         if not self.config_file.exists():
-            raise ConfigError(
+            raise FileNotFoundError(
                 f"Configuration file not found: {self.config_file}"
             )
 

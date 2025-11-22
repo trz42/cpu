@@ -100,7 +100,7 @@ bot:
 
         config = Config(config_file=config_file)
 
-        with pytest.raises(ConfigError, match="Configuration file not found"):
+        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
             config.load()
 
     def test_load_invalid_yaml(self, tmp_path: Path) -> None:
