@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot Contributors
+# Copyright (C) 2025 CPU contributors
 #
-# CPU bot - A next-generation EESSI build-and-deploy bot.
+# CPU - The next-generation EESSI build-and-deploy bot.
 #
 # GitHub Actions workflow for linting and code quality checks.
 # Runs on every push and pull request to ensure code standards.
@@ -26,7 +26,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install CPU bot (dev)
+    - name: Install dependencies & CPU
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev]"

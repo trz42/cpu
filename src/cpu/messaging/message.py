@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot Contributors
+# Copyright (C) 2025 CPU contributors
 """
 Message types and protocols for inter-thread communication.
 
