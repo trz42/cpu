@@ -8,9 +8,9 @@ Thread-based message bus implementation.
 
 from __future__ import annotations
 
+import contextlib
 import threading
-
-from typing import Dict, Generic, List, TypeVar
+from typing import Generic, TypeVar
 
 from cpu.messaging.base import MessageBusInterface, MessageQueueInterface, QueueError
 from cpu.messaging.queue_thread import ThreadMessageQueue
@@ -43,8 +43,8 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
 
     def __init__(self) -> None:
         """Initialize the message bus."""
-        self._queues: Dict[str, MessageQueueInterface[T]] = {}
-        self._topics: Dict[str, List[MessageQueueInterface[T]]] = {}
+        self._queues: dict[str, MessageQueueInterface[T]] = {}
+        self._topics: dict[str, list[MessageQueueInterface[T]]] = {}
         self._lock = threading.RLock()  # Reentrant lock for nested operations
 
     def get_queue(self, name: str) -> MessageQueueInterface[T]:
@@ -101,12 +101,10 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
         # Publish to subscribers outside lock to avoid deadlock
         # and improve concurrency (put() operations are independent)
         for subscriber_queue in subscribers:
-            try:
+            # Queue might be closed, skip it
+            # Alternative: could remove closed queues from topic
+            with contextlib.suppress(QueueError):
                 subscriber_queue.put(message)
-            except QueueError:
-                # Queue might be closed, skip it
-                # Alternative: could remove closed queues from topic
-                pass
 
     def subscribe(self, topic: str) -> MessageQueueInterface[T]:
         """
