@@ -8,6 +8,7 @@
 
 CPU is the next-generation EESSI build-and-deploy bot. It tries to achieve three main
 objectives:
+
 - refactor the design of the first-generation EESSI build-and-deploy bot towards a unified,
   multi-threaded and customizable architecture,
 - prepare for more security-focused scenarios, so it can be employed by a wide range of users
