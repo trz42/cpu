@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot Contributors
+# Copyright (C) 2025 CPU contributors
 """
-CPU bot - A next-generation EESSI build-and-deploy bot.
+CPU - The next-generation EESSI build-and-deploy bot.
 
 Extract changelog entry for a specific version from CHANGELOG.md.
 Used by CI to generate release notes.

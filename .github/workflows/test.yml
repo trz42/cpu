@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot Contributors
+# Copyright (C) 2025 CPU contributors
 #
-# CPU bot - A next-generation EESSI build-and-deploy bot.
+# CPU - The next-generation EESSI build-and-deploy bot.
 #
 # This workflow runs linting and static analysis checks.
 
@@ -31,7 +31,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Install dependencies & CPU bot
+    - name: Install dependencies & CPU
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev]"

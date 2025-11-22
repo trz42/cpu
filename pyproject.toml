@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU bot Contributors
+# Copyright (C) 2025 CPU contributors
 #
-# CPU bot - A next-generation EESSI build-and-deploy bot.
+# CPU - The next-generation EESSI build-and-deploy bot.
 #
 # This file defines the project metadata, dependencies, and tool configurations.
 [build-system]
@@ -65,6 +65,7 @@ dev = [
     "types-PyYAML==6.0.12.20250915",    # Type stubs for PyYAML
     "types-requests==2.32.4.20250913",  # Type stubs for requests
 ]
+effects = ["terminaltexteffects==0.12.0"]  # TerminalTextEffects (version 0.13.0 failed to install)
 
 [project.scripts]
 cpu = "cpu.__main__:main"
