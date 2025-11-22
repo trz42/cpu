@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2025 CPU contributors
+#
+# CPU - The next-generation EESSI build-and-deploy bot.
+#
+# Launcher script to run the CPU bot.
+
+# Run the CPU bot Python module
+exec python -m cpu "$@"
