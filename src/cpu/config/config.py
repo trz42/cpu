@@ -120,7 +120,7 @@ class Config:
                 f"Failed to parse configuration file {self.config_file}: {err}"
             ) from err
         except Exception as err:
-            # catch any other unexpected erros during parsing
+            # catch any other unexpected errors during parsing
             raise ConfigError(
                 f"Unexpected error loading configuration file {self.config_file}: {err}"
             ) from err
