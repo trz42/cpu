@@ -12,7 +12,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from unittest.mock import patch
+
 import pytest
+
+import yaml
 
 from cpu.config.config import Config, ConfigError, ConfigValidationError
 
@@ -628,3 +632,72 @@ bot:
 
         # Should handle empty file gracefully (line 113-114: or {})
         assert config._data == {}
+
+class TestConfigFileErrorHandling:
+    """Test specific file error scenarios."""
+
+    def test_file_permission_denied(self, tmp_path: Path) -> None:
+        """Test handling when file exists but cannot be opened (permission denied)."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock open to raise PermissionError
+        import builtins
+        original_open = builtins.open
+
+        def mock_open(*args: Any, **kwargs: Any) -> Any:
+            if str(config_file) in str(args[0]):
+                raise PermissionError("Permission denied")
+            return original_open(*args, **kwargs)
+
+        with patch("builtins.open", side_effect=mock_open):
+            with pytest.raises(ConfigError, match="Failed to open"):
+                config.load()
+
+    def test_file_io_error(self, tmp_path: Path) -> None:
+        """Test handling when file read fails with IO error."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock open to raise IOError
+        import builtins
+        original_open = builtins.open
+
+        def mock_open(*args: Any, **kwargs: Any) -> Any:
+            if str(config_file) in str(args[0]):
+                raise IOError("Disk read error")
+            return original_open(*args, **kwargs)
+
+        with patch("builtins.open", side_effect=mock_open):
+            with pytest.raises(ConfigError, match="Failed to open"):
+                config.load()
+
+    def test_unexpected_parsing_error(self, tmp_path: Path) -> None:
+        """Test handling of unexpected errors during YAML parsing."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+
+        # Mock yaml.safe_load to raise unexpected error
+        original_safe_load = yaml.safe_load
+
+        def mock_safe_load(_: Any) -> Any:
+            raise RuntimeError("Unexpected parsing error")
+
+        with patch("yaml.safe_load", side_effect=mock_safe_load):
+            with pytest.raises(ConfigError, match="Unexpected error loading"):
+                config.load()

@@ -105,14 +105,23 @@ class Config:
 
         try:
             with open(self.config_file, encoding="utf-8") as file:
-                self._data = yaml.safe_load(file) or {}
+                file_content = file.read()
+        except OSError as err:
+            # covers permission denied, IO errors, etc.
+            raise ConfigError(
+                f"Failed to open configuration file {self.config_file}: {err}"
+            ) from err
+
+        try:
+            self._data = yaml.safe_load(file_content) or {}
         except yaml.YAMLError as err:
             raise ConfigError(
                 f"Failed to parse configuration file {self.config_file}: {err}"
             ) from err
         except Exception as err:
+            # catch any other unexpected erros during parsing
             raise ConfigError(
-                f"Failed to read configuration file {self.config_file}: {err}"
+                f"Unexpected error loading configuration file {self.config_file}: {err}"
             ) from err
 
         # Mark as loaded before applying overrides (so get() works in _apply_env_overrides)
