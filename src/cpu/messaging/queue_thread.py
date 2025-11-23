@@ -11,7 +11,7 @@ from __future__ import annotations
 import queue
 from typing import Generic, TypeVar
 
-from cpu.messaging.base import MessageQueueInterface, QueueEmptyError, QueueFullError
+from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError, QueueFullError
 
 T = TypeVar("T")
 
