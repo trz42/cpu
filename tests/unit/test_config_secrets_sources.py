@@ -17,14 +17,14 @@ import base64
 from pathlib import Path
 
 import pytest
+
+from cpu.config.secrets_audit import SecretsAuditLogger
+from cpu.config.secrets_encryption import NoEncryption
 from cpu.config.secrets_sources import (
     EnvVarSecretSource,
     FileSecretSource,
     SecretValue,
 )
-
-from cpu.config.secrets_audit import SecretsAuditLogger
-from cpu.config.secrets_encryption import NoEncryption
 
 
 class TestSecretValue:
