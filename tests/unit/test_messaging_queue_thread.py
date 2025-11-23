@@ -3,7 +3,8 @@
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
-Tests for ThreadMessageQueue implementation.
+Tests for cpu.messaging.queue_thread module which provides
+a thread-based implementation for MessageQueueInterface.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import time
 
 import pytest
 
-from cpu.messaging.base import QueueEmptyError, QueueFullError
+from cpu.messaging.interfaces import QueueEmptyError, QueueFullError
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 

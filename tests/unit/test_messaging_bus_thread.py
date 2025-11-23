@@ -3,7 +3,8 @@
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
-Unit tests for ThreadMessageBus.
+Tests for cpu.messaging.bus_thread module which provides
+a thread-based implementation for MessageBusInterface.
 
 Tests the message bus implementation including:
 - Named queue management
@@ -13,8 +14,8 @@ Tests the message bus implementation including:
 
 from __future__ import annotations
 
+from cpu.messaging.bus_thread import ThreadMessageBus
 from cpu.messaging.message import Message, MessageType
-from cpu.messaging.message_bus import ThreadMessageBus
 
 
 class TestThreadMessageBus:

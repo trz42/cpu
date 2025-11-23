@@ -12,7 +12,7 @@ import contextlib
 import threading
 from typing import Generic, TypeVar
 
-from cpu.messaging.base import MessageBusInterface, MessageQueueInterface, QueueError
+from cpu.messaging.interfaces import MessageBusInterface, MessageQueueInterface, QueueError
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
 T = TypeVar("T")
