@@ -100,11 +100,21 @@ class TestThreadMessageBus:
         queue2 = bus.get_queue("queue2")
         sub1 = bus.subscribe("topic1")
 
+        # Put messages before shutdown
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        queue1.put(msg)
+
         bus.shutdown()
 
-        # Verify queues are marked as closed
+        # After shutdown, queues should be closed
+        # We can verify by checking the internal state of ThreadMessageQueue
+        # since we know the concrete implementation
+        from cpu.messaging.queue_thread import ThreadMessageQueue
+        assert isinstance(queue1, ThreadMessageQueue)
         assert queue1._closed
+        assert isinstance(queue2, ThreadMessageQueue)
         assert queue2._closed
+        assert isinstance(sub1, ThreadMessageQueue)
         assert sub1._closed
 
     def test_multiple_messages_to_multiple_subscribers(self) -> None:
