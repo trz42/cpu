@@ -1,19 +1,227 @@
-# CPU Bot Configuration Example
-# This is a minimal configuration file for the CPU bot
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2025 CPU contributors
+#
+# CPU - The next-generation EESSI build-and-deploy bot.
+#
+# Copy this file to config.yaml and customize for your deployment.
 
+# Bot Configuration Example
+# ================================
 bot:
   # Number of worker threads for processing tasks
   num_workers: 4
-  
+
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_level: INFO
-  
-  # Enable terminal effects for banner (requires: pip install cpu[effects])
+
+  # Enable terminal effects for banner
   # Set to true for animated banner on startup
   banner_effects: false
-  
+
   # Banner effect type: Slide, Spotlights, Rain, Waves, etc.
   # Only used if banner_effects is true
   banner_effect_type: Beams
+
+
+# Secrets Management Configuration
+# =================================
+# Configuration-based mapping: context → secret references → actual secrets
+#
+# KEY CONCEPTS:
+# 1. Context Matching: Most specific config wins
+# 2. Secret References: Config names → actual secret storage
+# 3. Multi-Source Fallback: env → file → vault (future)
+# 4. Load Once: Startup only, cached in memory
+#
+# SECURITY: Never commit secrets. Use env vars (dev) or encrypted files (prod).
+secrets:
   
-  # Other settings can be added here as needed
+  # Encryption Settings
+  # -------------------
+  # Option 1: No Encryption (Development)
+  #   enabled: false
+  #   Use: Local dev, CI/CD, containers
+  #
+  # Option 2: Env Var Passphrase
+  #   enabled: true
+  #   passphrase_env_var: "CPU_MASTER_PASSPHRASE"
+  #   Use: Automated deployments
+  #
+  # Option 3: Interactive Passphrase (Recommended for Production)
+  #   enabled: true
+  #   passphrase_env_var: null
+  #   Use: Production with operator at startup
+  #   Benefit: Passphrase never stored on disk
+  encryption:
+    enabled: false  # Set true for production
+    passphrase_env_var: "CPU_MASTER_PASSPHRASE"
+  
+  # Secret Sources (Priority Order)
+  # --------------------------------
+  # env: Environment variables (CPU_SECRET_<ref>)
+  # file: Files in directory (plain or *.enc encrypted)
+  sources:
+    - type: env      # Highest priority
+    - type: file
+      secrets_dir: /etc/cpu/secrets
+  
+  # GitHub App Configurations
+  # -------------------------
+  # Multiple apps for different contexts.
+  #
+  # CONTEXT MATCHING:
+  # Most specific wins. Examples:
+  # - Request: org=EESSI, repo=software-layer → matches "software_layer" (2 fields)
+  # - Request: org=EESSI, repo=other → matches "eessi" (1 field)
+  # - Request: org=other → matches "default" (0 fields, catch-all)
+  #
+  # SECRET REFERENCES:
+  # Names used to look up secrets in sources (env vars or files).
+  # Required: app_id, private_key, webhook_secret
+  # Optional: installation_id
+  github:
+    # Catch-all default (use for single-app deployments)
+    - name: default
+      context: {}  # Empty = matches any
+      refs:
+        app_id: github.default.app_id
+        private_key: github.default.private_key
+        webhook_secret: github.default.webhook_secret
+    
+    # Organization-level app
+    - name: eessi
+      context:
+        platform: github
+        organization: EESSI
+      refs:
+        app_id: github.eessi.app_id
+        private_key: github.eessi.private_key
+        webhook_secret: github.eessi.webhook_secret
+    
+    # Repository-specific app (highest priority for this repo)
+    - name: software_layer
+      context:
+        platform: github
+        organization: EESSI
+        repository: software-layer
+      refs:
+        app_id: github.software_layer.app_id
+        private_key: github.software_layer.private_key
+        webhook_secret: github.software_layer.webhook_secret
+  
+  # GitLab Configurations
+  # ---------------------
+  # Personal/project access tokens.
+  # Required: token, webhook_secret
+  gitlab:
+    - name: default
+      context: {}
+      refs:
+        token: gitlab.default.token
+        webhook_secret: gitlab.default.webhook_secret
+    
+    - name: production
+      context:
+        platform: gitlab
+        environment: production
+      refs:
+        token: gitlab.production.token
+        webhook_secret: gitlab.production.webhook_secret
+  
+  # S3/Object Storage Configurations
+  # ---------------------------------
+  # Credentials for CVMFS repositories.
+  # Required: access_key_id, secret_access_key
+  # Optional: endpoint_url, region
+  s3:
+    - name: cvmfs_production
+      context:
+        cvmfs_repo: software.eessi.io
+        environment: production
+      refs:
+        access_key_id: s3.production.access_key
+        secret_access_key: s3.production.secret_key
+        endpoint_url: s3.production.endpoint  # Optional
+        region: s3.production.region  # Optional
+    
+    - name: cvmfs_staging
+      context:
+        cvmfs_repo: pilot.eessi.io
+        environment: staging
+      refs:
+        access_key_id: s3.staging.access_key
+        secret_access_key: s3.staging.secret_key
+  
+  # Smee Webhook Proxy (Development)
+  # ---------------------------------
+  # For local dev without public URL. Get channel: https://smee.io/new
+  # Required: channel_url
+  smee:
+    - name: default
+      context: {}
+      refs:
+        channel_url: smee.channel_url
+
+
+# ============================================================================
+# SETUP EXAMPLES
+# ============================================================================
+
+# Development (No Encryption)
+# ----------------------------
+# export CPU_SECRETS__GITHUB__DEFAULT__APP_ID="123456"
+# export CPU_SECRETS__GITHUB__DEFAULT__PRIVATE_KEY="$(cat github_app.pem)"
+# export CPU_SECRETS__GITHUB__DEFAULT__WEBHOOK_SECRET="my-webhook-secret"
+# cpu --config config.yaml
+
+# Production (Encrypted Files)
+# -----------------------------
+# 1. Create secrets directory:
+#    sudo mkdir -p /etc/cpu/secrets
+#    sudo chmod 700 /etc/cpu/secrets
+#
+# 2. Create plain files:
+#    echo "123456" | sudo tee /etc/cpu/secrets/github.eessi.app_id
+#    sudo cp github_app.pem /etc/cpu/secrets/github.eessi.private_key
+#    echo "webhook-secret" | sudo tee /etc/cpu/secrets/github.eessi.webhook_secret
+#
+# 3. Encrypt (requires cpu.tools.encrypt_secret):
+#    python3 -m cpu.tools.encrypt_secret \
+#      --input /etc/cpu/secrets/github.eessi.app_id \
+#      --output /etc/cpu/secrets/github.eessi.app_id.enc
+#
+# 4. Remove plain files:
+#    sudo rm /etc/cpu/secrets/github.eessi.app_id
+#    sudo rm /etc/cpu/secrets/github.eessi.private_key
+#    sudo rm /etc/cpu/secrets/github.eessi.webhook_secret
+#
+# 5. Set permissions:
+#    sudo chmod 600 /etc/cpu/secrets/*.enc
+#    sudo chown cpu:cpu /etc/cpu/secrets/*.enc
+#
+# 6. Start (will prompt for passphrase):
+#    cpu --config config.yaml
+#
+# Or use env var passphrase (less secure):
+#    export CPU_MASTER_PASSPHRASE="my-passphrase"
+#    cpu --config config.yaml
+
+# Context Matching Examples
+# --------------------------
+# Given the config above, here's what gets selected:
+#
+# Webhook from EESSI/software-layer:
+#   Context: {platform: github, organization: EESSI, repository: software-layer}
+#   Selected: "software_layer" config (2 fields match)
+#   Secrets: github.software_layer.*
+#
+# Webhook from EESSI/compatibility-layer:
+#   Context: {platform: github, organization: EESSI, repository: compatibility-layer}
+#   Selected: "eessi" config (1 field matches)
+#   Secrets: github.eessi.*
+#
+# Webhook from other-org/some-repo:
+#   Context: {platform: github, organization: other-org, repository: some-repo}
+#   Selected: "default" config (0 fields, catch-all)
+#   Secrets: github.default.*
+

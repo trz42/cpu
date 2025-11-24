@@ -105,13 +105,15 @@ class TestEnvVarSecretSource:
         encryption = NoEncryption()
         source = EnvVarSecretSource(audit_logger, encryption)
 
-        monkeypatch.setenv("CPU_SECRET_TEST_SECRET", "my-value")
+        monkeypatch.setenv("CPU_SECRETS__TEST_SECRET", "my-value")
 
         secret = source.get_secret("test_secret")
 
         assert secret.value == "my-value"
         assert secret.source == "env:plain"
         assert secret.secret_ref == "test_secret"
+
+        monkeypatch.delenv("CPU_SECRETS__TEST_SECRET")
 
     def test_get_secret_from_file_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test loading secret from file path in environment."""
@@ -123,12 +125,14 @@ class TestEnvVarSecretSource:
         secret_file = tmp_path / "secret.txt"
         secret_file.write_bytes(b"file-content")
 
-        monkeypatch.setenv("CPU_SECRET_TEST_SECRET_FILE", str(secret_file))
+        monkeypatch.setenv("CPU_SECRETS__TEST_SECRET__FILE", str(secret_file))
 
         secret = source.get_secret("test_secret")
 
         assert secret.value == b"file-content"
         assert secret.source == "env:file"
+
+        monkeypatch.delenv("CPU_SECRETS__TEST_SECRET__FILE")
 
     def test_get_secret_from_base64(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test loading secret from base64-encoded environment variable."""
@@ -138,12 +142,14 @@ class TestEnvVarSecretSource:
 
         # Base64 encode a value
         encoded = base64.b64encode(b"base64-secret").decode("utf-8")
-        monkeypatch.setenv("CPU_SECRET_TEST_SECRET_BASE64", encoded)
+        monkeypatch.setenv("CPU_SECRETS__TEST_SECRET__BASE64", encoded)
 
         secret = source.get_secret("test_secret")
 
         assert secret.value == b"base64-secret"
         assert secret.source == "env:base64"
+
+        monkeypatch.delenv("CPU_SECRETS__TEST_SECRET__BASE64")
 
     def test_get_secret_encrypted(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test loading encrypted secret from environment."""
@@ -158,13 +164,15 @@ class TestEnvVarSecretSource:
         encrypted = encryption.encrypt(plaintext)
         encoded = base64.b64encode(encrypted).decode("utf-8")
 
-        monkeypatch.setenv("CPU_SECRET_TEST_SECRET_ENCRYPTED", encoded)
+        monkeypatch.setenv("CPU_SECRETS__TEST_SECRET__ENCRYPTED", encoded)
 
         secret = source.get_secret("test_secret")
 
         assert secret.value == plaintext
         assert secret.source == "env:encrypted"
         assert secret.is_encrypted is True
+
+        monkeypatch.delenv("CPU_SECRETS__TEST_SECRET__ENCRYPTED")
 
     def test_get_secret_not_found(self, tmp_path: Path) -> None:
         """Test that KeyError is raised when secret not found."""
@@ -182,11 +190,13 @@ class TestEnvVarSecretSource:
         source = EnvVarSecretSource(audit_logger, encryption)
 
         # Lowercase secret_ref should be converted to uppercase
-        monkeypatch.setenv("CPU_SECRET_GITHUB_DEFAULT_PRIVATE_KEY", "key-content")
+        monkeypatch.setenv("CPU_SECRETS__GITHUB__DEFAULT__PRIVATE_KEY", "key-content")
 
-        secret = source.get_secret("github_default_private_key")
+        secret = source.get_secret("github.default.private_key")
 
         assert secret.value == "key-content"
+
+        monkeypatch.delenv("CPU_SECRETS__GITHUB__DEFAULT__PRIVATE_KEY")
 
     def test_audit_logging_on_access(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that secret access is logged to audit."""
@@ -195,7 +205,7 @@ class TestEnvVarSecretSource:
         encryption = NoEncryption()
         source = EnvVarSecretSource(audit_logger, encryption)
 
-        monkeypatch.setenv("CPU_SECRET_TEST", "value")
+        monkeypatch.setenv("CPU_SECRETS__TEST", "value")
 
         source.get_secret("test")
 
@@ -204,6 +214,8 @@ class TestEnvVarSecretSource:
         content = audit_file.read_text()
         assert "test" in content
         assert "env:plain" in content
+
+        monkeypatch.delenv("CPU_SECRETS__TEST")
 
 
 class TestFileSecretSource:
