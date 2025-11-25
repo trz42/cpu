@@ -216,7 +216,7 @@ class SecretsConfiguration:
 
     Attributes:
         encryption_enabled: Whether encryption is enabled
-        passphrase_env_var: Env var for master passphrase
+        passphrase_env_var: Env var for main passphrase
         sources: List of source configurations in priority order
         github_configs: List of GitHub secret configurations
         gitlab_configs: List of GitLab secret configurations
@@ -225,7 +225,7 @@ class SecretsConfiguration:
     """
 
     encryption_enabled: bool = False
-    passphrase_env_var: str = "CPU_MASTER_PASSPHRASE"
+    passphrase_env_var: str = "CPU_MAIN_PASSPHRASE"
     sources: list[dict[str, Any]] = field(default_factory=list)
     github_configs: list[GitHubSecretConfig] = field(default_factory=list)
     gitlab_configs: list[GitLabSecretConfig] = field(default_factory=list)
@@ -251,7 +251,7 @@ class SecretsConfiguration:
         # Parse encryption settings
         encryption_data = secrets_data.get("encryption", {})
         encryption_enabled = encryption_data.get("enabled", False)
-        passphrase_env_var = encryption_data.get("passphrase_env_var", "CPU_MASTER_PASSPHRASE")
+        passphrase_env_var = encryption_data.get("passphrase_env_var", "CPU_MAIN_PASSPHRASE")
 
         # Parse sources
         sources = secrets_data.get("sources", [])
@@ -433,7 +433,7 @@ class SecretManager:
         for config in configs:
             if config.matches(context):
                 # Count specificity (more context fields = more specific)
-                specificity = len([v for v in config.context.values() if v])
+                specificity = len([value for value in config.context.values() if value])
                 matches.append((specificity, config))
 
         if not matches:
@@ -463,8 +463,8 @@ class SecretManager:
         for source in self.sources:
             try:
                 return source.get_secret(secret_ref)
-            except (KeyError, FileNotFoundError) as e:
-                errors.append(f"{source.__class__.__name__}: {e}")
+            except (KeyError, FileNotFoundError) as err:
+                errors.append(f"{source.__class__.__name__}: {err}")
                 continue
 
         # Not found in any source
@@ -538,8 +538,8 @@ class SecretManager:
 
             return secrets
 
-        except SecretNotFoundError as e:
-            raise SecretNotFoundError(f"Failed to load GitHub secrets for config '{config.name}': {e}") from e
+        except SecretNotFoundError as err:
+            raise SecretNotFoundError(f"Failed to load GitHub secrets for config '{config.name}': {err}") from err
 
     def get_gitlab_secrets(
         self,
