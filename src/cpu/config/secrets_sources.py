@@ -117,20 +117,21 @@ class EnvVarSecretSource(SecretSource):
     Load secrets from environment variables.
 
     Naming conventions:
-    - CPU_SECRET_<REF>=<value>                    # Plain value
-    - CPU_SECRET_<REF>_FILE=/path/to/file         # Path to file
-    - CPU_SECRET_<REF>_BASE64=<base64>            # Base64-encoded
-    - CPU_SECRET_<REF>_ENCRYPTED=<base64>         # Encrypted + base64
+    - CPU_SECRETS__<REF>=<value>                    # Plain value
+    - CPU_SECRETS__<REF>__FILE=/path/to/file        # Path to file
+    - CPU_SECRETS__<REF>__BASE64=<base64>           # Base64-encoded
+    - CPU_SECRETS__<REF>__ENCRYPTED=<base64>        # Encrypted + base64
 
     Examples:
-        CPU_SECRET_GITHUB_DEFAULT_WEBHOOK_SECRET=mysecret123
-        CPU_SECRET_GITHUB_DEFAULT_PRIVATE_KEY_FILE=/keys/github.pem
-        CPU_SECRET_S3_ACCESS_KEY_ENCRYPTED=<encrypted-base64>
+        CPU_SECRETS__GITHUB__DEFAULT__WEBHOOK_SECRET=mysecret123
+        CPU_SECRETS__GITHUB__DEFAULT__PRIVATE_KEY__FILE=/keys/github.pem
+        CPU_SECRETS__S3__ACCESS_KEY_ID__ENCRYPTED=<encrypted-base64>
     """
 
     def get_secret(self, secret_ref: str) -> SecretValue:
         """Load secret from environment."""
-        env_key = f"CPU_SECRET_{secret_ref.upper()}"
+        # Replace dots to with double underscores for path separators, keep underscores in field names
+        env_key = f"CPU_SECRETS__{secret_ref.replace('.', '__').upper()}"
 
         # Try plain value
         if env_key in os.environ:
@@ -139,7 +140,7 @@ class EnvVarSecretSource(SecretSource):
             return SecretValue(value, "env:plain", secret_ref)
 
         # Try file path
-        file_key = f"{env_key}_FILE"
+        file_key = f"{env_key}__FILE"
         if file_key in os.environ:
             # TODO: what if file_path is empty or does not exist?
             file_path = Path(os.environ[file_key])
@@ -150,21 +151,21 @@ class EnvVarSecretSource(SecretSource):
             return SecretValue(data, "env:file", secret_ref)
 
         # Try base64
-        base64_key = f"{env_key}_BASE64"
+        base64_key = f"{env_key}__BASE64"
         if base64_key in os.environ:
             data = base64.b64decode(os.environ[base64_key])
             self.audit.log_secret_access(secret_ref, "env:base64")
             return SecretValue(data, "env:base64", secret_ref)
 
         # Try encrypted
-        enc_key = f"{env_key}_ENCRYPTED"
+        enc_key = f"{env_key}__ENCRYPTED"
         if enc_key in os.environ:
             encrypted = base64.b64decode(os.environ[enc_key])
             data = self._decrypt_if_needed(encrypted, secret_ref)
             self.audit.log_secret_access(secret_ref, "env:encrypted")
             return SecretValue(data, "env:encrypted", secret_ref, is_encrypted=True)
 
-        raise KeyError(f"Secret not found in environment: {secret_ref}")
+        raise KeyError(f"Secret not found in environment: {secret_ref} {enc_key}")
 
 
 class FileSecretSource(SecretSource):
