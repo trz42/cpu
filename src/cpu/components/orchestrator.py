@@ -72,36 +72,13 @@ class Orchestrator:
         Raises:
             RuntimeError: If any component initialization fails or is running
         """
-        for name, component in self._components.items():
-            # check if component is running
-            if name in self._threads and self._threads[name].is_alive():
-                raise RuntimeError(f"Cannot initialize component {name}: component is running")
-
-            try:
-                component.initialize()
-            except Exception as err:
-                raise RuntimeError(
-                    f"Failed to initialize component {name}: {err}"
-                ) from err
+        for name in self._components:
+            self.initialize_component(name)
 
     def start_all(self) -> None:
         """Start all components in separate threads."""
-        for name, component in self._components.items():
-            # check if component is already running
-            if name in self._threads and self._threads[name].is_alive():
-                raise RuntimeError(f"Component {name} is already running")
-
-            # check if component is initialized
-            if component.get_state() != ComponentState.INITIALIZED:
-                raise RuntimeError(f"Component {name} is not initialized")
-
-            thread = threading.Thread(
-                target=component.start,
-                name=f"cpu-{name}",
-                daemon=False,
-            )
-            self._threads[name] = thread
-            thread.start()
+        for name in self._components:
+            self.start_component(name)
 
     def stop_all(self, timeout: float | None = None) -> None:
         """
@@ -110,16 +87,8 @@ class Orchestrator:
         Args:
             timeout: Maximum time to wait for all components to stop
         """
-        # request all components to stop
-        for component in self._components.values():
-            component.stop(timeout=timeout)
-
-        # wait for threads to finish
-        per_thread_timeout = timeout / len(self._threads) if timeout and self._threads else None
-
-        for thread in self._threads.values():
-            if thread.is_alive():
-                thread.join(timeout=per_thread_timeout)
+        for name in self._components:
+            self.stop_component(name, timeout=timeout)
 
     def initialize_component(self, name: str) -> None:
         """
