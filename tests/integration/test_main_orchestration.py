@@ -69,7 +69,8 @@ class TestRunOrchestrator:
         orchestrator._shutdown_requested = False
 
         # simulate KeyboardInterrupt after start_all
-        def raise_interrupt() -> None:
+        def raise_interrupt(*args, **kwargs) -> None:
+            del args, kwargs  # unused
             raise KeyboardInterrupt()
 
         with patch("time.sleep", side_effect=raise_interrupt):
