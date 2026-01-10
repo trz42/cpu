@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU contributors
+# Copyright (C) 2026 CPU contributors
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
@@ -15,7 +15,54 @@ from pathlib import Path
 from typing import NoReturn
 
 from cpu import __version__
+from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config, ConfigError, ConfigValidationError
+
+
+def create_orchestrator(config: Config) -> Orchestrator:
+    """
+    Create and configure orchestrator with all components.
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        Configured orchestrator instance
+    """
+    orchestrator = Orchestrator()
+
+    del config  # not yet used
+    # TODO register components as they're implemented
+    # orchestrator.register(EventHandlerComponent(...))
+    # orchestrator.register(JobManagerComponent(...))
+    # orchestrator.register(SmeeClientComponent(...))
+    # orchestrator.register(TimerComponent(...))
+    # orchestrator.register(WorkerPoolComponent(...))
+
+    return orchestrator
+
+
+def run_orchestrator(orchestrator: Orchestrator) -> None:
+    """
+    Run orchestrator until shutdown signal.
+
+    Args:
+        orchestrator: Configured orchestrator
+    """
+    import time
+
+    orchestrator.setup_signal_handlers()
+    orchestrator.start_all()
+
+    try:
+        # loop until shutdown signal
+        while not orchestrator._shutdown_requested:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nKeyboard interrupt received")
+    finally:
+        print("Shutting down...")
+        orchestrator.stop_all(timeout=10)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -220,15 +267,15 @@ def main() -> int:
         Exit code (0 for success, non-zero for failure)
     """
     try:
-        # Parse command line arguments
+        # parse command line arguments
         args = parse_arguments()
 
-        # Load configuration first (so we can use banner effects setting)
+        # load configuration first (so we can use banner effects setting)
         config_file = Path(args.config)
         config = Config(config_file=config_file, env_prefix="CPU_")
         config.load()
 
-        # Validate configuration
+        # validate configuration
         validate_configuration(config)
 
         # create banner header
@@ -240,13 +287,19 @@ def main() -> int:
         # add startup information
         banner += create_startup_info(config_file, config, verbose=args.extended_startup_info)
 
-        # TODO: Start bot components
-        banner += "Bot components would start here (not yet implemented)\n"
-        banner += "\n"
-        banner += "Startup complete!\n"
+        # create and run orchestrator
+        orchestrator = create_orchestrator(config)
+        orchestrator.initialize_all()
 
-        # Print banner with effects if configured
+        banner += "✓ All components initialized\n"
+        banner += "\nStarting components...\n"
+
+        # print banner with effects if configured
         print_banner(banner, config)
+
+        run_orchestrator(orchestrator)
+
+        print("\nShutdown complete!")
 
         return 0
 
