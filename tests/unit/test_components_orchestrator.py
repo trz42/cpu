@@ -61,8 +61,12 @@ class TestOrchestratorInitialization:
 
         orchestrator.initialize_all()
 
-        assert orchestrator.get_component("comp1").get_state() == ComponentState.INITIALIZED
-        assert orchestrator.get_component("comp2").get_state() == ComponentState.INITIALIZED
+        comp1 = orchestrator.get_component("comp1")
+        comp2 = orchestrator.get_component("comp2")
+        assert comp1 is not None
+        assert comp2 is not None
+        assert comp1.get_state() == ComponentState.INITIALIZED
+        assert comp2.get_state() == ComponentState.INITIALIZED
 
     def test_orchestrator_initialize_failure_stops_initialization(self) -> None:
         """Test that initialization failure is handled."""
