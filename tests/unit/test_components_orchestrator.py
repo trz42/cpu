@@ -11,7 +11,6 @@ from __future__ import annotations
 import time
 
 import pytest
-from cpu.components.orchestrator import Orchestrator
 
 from cpu.components.base import (
     ComponentInterface,
@@ -19,6 +18,7 @@ from cpu.components.base import (
     HealthStatus,
     RunnableComponent,
 )
+from cpu.components.orchestrator import Orchestrator
 from tests.unit.test_components_fixtures import MockComponent, MockRunnableComponent
 
 
