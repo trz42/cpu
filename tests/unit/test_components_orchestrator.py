@@ -147,3 +147,68 @@ class TestOrchestratorStartStop:
 
         # component should be stopped or stopping
         assert component.get_state() in [ComponentState.STOPPED, ComponentState.STOPPING]
+
+
+class TestOrchestratorSignalHandling:
+    """Test signal handling and graceful shutdown."""
+
+    def test_orchestrator_signal_handler_registration(self) -> None:
+        """Test that signal handlers can be registered."""
+        from unittest.mock import patch
+
+        orchestrator = Orchestrator()
+
+        with patch("signal.signal") as mock_signal:
+            orchestrator.setup_signal_handlers()
+
+            # should register SIGTERM and SIGINT
+            assert mock_signal.call_count == 2
+
+    def test_orchestrator_handles_sigterm(self) -> None:
+        """Test orchestrator handles SIGTERM gracefully."""
+        orchestrator = Orchestrator()
+        orchestrator.register(MockRunnableComponent(name="test"))
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        time.sleep(0.1)
+
+        # trigger shutdown via signal handler
+        orchestrator._shutdown_requested = True
+        orchestrator.stop_all(timeout=1)
+
+        comp = orchestrator.get_component("test")
+        assert comp is not None
+        assert comp.get_state() == ComponentState.STOPPED
+
+
+class TestOrchestratorHealthMonitoring:
+    """Test health monitoring in orchestrator."""
+
+    def test_orchestrator_health_check_all(self) -> None:
+        """Test checking health of all components."""
+        orchestrator = Orchestrator()
+
+        comp1 = MockComponent(name="comp1")
+        comp2 = MockComponent(name="comp2")
+
+        orchestrator.register(comp1)
+        orchestrator.register(comp2)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        health = orchestrator.health_check_all()
+
+        assert health["comp1"] == HealthStatus.HEALTHY
+        assert health["comp2"] == HealthStatus.HEALTHY
+
+    def test_orchestrator_is_healthy(self) -> None:
+        """Test overall health status."""
+        orchestrator = Orchestrator()
+
+        comp1 = MockComponent(name="comp1")
+        orchestrator.register(comp1)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        assert orchestrator.is_healthy()

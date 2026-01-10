@@ -14,9 +14,11 @@ This module provides the Orchestrator class which manages:
 
 from __future__ import annotations
 
+import signal
 import threading
+from typing import Any
 
-from cpu.components.base import ComponentInterface
+from cpu.components.base import ComponentInterface, HealthStatus
 
 
 class Orchestrator:
@@ -33,6 +35,7 @@ class Orchestrator:
     def __init__(self) -> None:
         """Initialize orchestrator."""
         self._components: dict[str, ComponentInterface] = {}
+        self._shutdown_requested = False
         self._threads: dict[str, threading.Thread] = {}
 
     def register(self, component: ComponentInterface) -> None:
@@ -105,3 +108,38 @@ class Orchestrator:
         for thread in self._threads.values():
             if thread.is_alive():
                 thread.join(timeout=per_thread_timeout)
+
+    def setup_signal_handlers(self) -> None:
+        """Setup signal handlers for graceful shutdown."""
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+
+    def _signal_handler(self, signum: int, frame: Any) -> None:
+        """Handle shutdown signals."""
+        del frame  # unused
+        signal_name = signal.Signals(signum).name
+        print(f"\nReceived {signal_name}, initiating graceful shutdown...")
+        self._shutdown_requested = True
+        self.stop_all(timeout=10)
+
+    def health_check_all(self) -> dict[str, HealthStatus]:
+        """
+        Check health of all components.
+
+        Returns:
+            Dict mapping component names to health status
+        """
+        return {
+            name: component.health_check()
+            for name, component in self._components.items()
+        }
+
+    def is_healthy(self) -> bool:
+        """
+        Check if all components are healthy.
+
+        Returns:
+            True if all components are healthy
+        """
+        health = self.health_check_all()
+        return all(status == HealthStatus.HEALTHY for status in health.values())
