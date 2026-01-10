@@ -52,9 +52,12 @@ def run_orchestrator(orchestrator: Orchestrator) -> None:
     import time
 
     orchestrator.setup_signal_handlers()
-    orchestrator.start_all()
 
     try:
+        orchestrator.start_all()
+        print("✓ All components started successfully")
+        print("Bot is running. Press Ctrl+C to stop.\n")
+
         # loop until shutdown signal
         while not orchestrator._shutdown_requested:
             time.sleep(1)
@@ -63,6 +66,7 @@ def run_orchestrator(orchestrator: Orchestrator) -> None:
     finally:
         print("Shutting down...")
         orchestrator.stop_all(timeout=10)
+        print("✓ All components stopped")
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -144,14 +148,14 @@ def print_banner(banner: str, config: Config | None = None) -> None:
         banner: The banner to print
         config: Optional configuration object to check for banner effects setting
     """
-    # Check if terminal effects are enabled in config
+    # check if terminal effects are enabled in config
     enable_effects = False
     effect_name = "Slide"
     if config is not None:
         enable_effects = config.get("bot.banner_effects", False)
         effect_name = config.get("bot.banner_effect_type", "Slide")
 
-    # Try to use terminal effects if enabled and available
+    # try to use terminal effects if enabled and available
     if enable_effects:
         try:
             import importlib
@@ -162,10 +166,10 @@ def print_banner(banner: str, config: Config | None = None) -> None:
             # get class from module
             effect_class = getattr(module, effect_name)
 
-            # Create effect
+            # create effect
             effect = effect_class(banner)
 
-            # Run the effect
+            # run the effect
             with effect.terminal_output() as terminal:
                 for frame in effect:
                     terminal.print(frame)
@@ -173,15 +177,17 @@ def print_banner(banner: str, config: Config | None = None) -> None:
             return
 
         except (ImportError, AttributeError):
-            # TerminalTextEffects not installed, fall back to plain banner
+            # terminalTextEffects not installed, fall back to plain banner
             # ... or effect_name does not exist in TerminalTextEffects
             print("IMPORT OR ATTRIBUTE ERROR")
             pass
-        except Exception:
-            # Any other error, fall back gracefully
-            pass
+        except Exception as err:
+            # any other error, fall back gracefully
+            print(f"TTE error: {err}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
 
-    # Print plain banner
+    # print plain banner
     print(banner)
 
 
