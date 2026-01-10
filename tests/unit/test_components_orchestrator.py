@@ -91,8 +91,8 @@ class TestOrchestratorInitialization:
             orchestrator.initialize_all()
 
 
-class TestOrchestratorStartStop:
-    """Test component start/stop in orchestrator."""
+class TestOrchestratorAllComponentControl:
+    """Test all components' initialization, start, and stop."""
 
     def test_orchestrator_start_all(self) -> None:
         """Test starting all components in threads."""
@@ -164,8 +164,44 @@ class TestOrchestratorStartStop:
 
         orchestrator.stop_all(timeout=1)
 
+    def test_initialize_all_while_components_running_raises_error(self) -> None:
+        """Test that initialize_all with running components raises error."""
+        orchestrator = Orchestrator()
+        comp = MockRunnableComponent(name="test")
+        orchestrator.register(comp)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
 
-# tests/unit/test_orchestrator.py - Add new test class:
+        time.sleep(0.1)
+
+        with pytest.raises(RuntimeError, match="is running"):
+            orchestrator.initialize_all()
+
+        orchestrator.stop_all(timeout=1)
+
+    def test_start_all_not_initialized_raises_error(self) -> None:
+        """Test start_all with non-initialized components raises error."""
+        orchestrator = Orchestrator()
+        comp = MockRunnableComponent(name="test")
+        orchestrator.register(comp)
+        # Don't initialize
+
+        with pytest.raises(RuntimeError, match="not initialized"):
+            orchestrator.start_all()
+
+    def test_stop_all_with_non_running_components_is_safe(self) -> None:
+        """Test stop_all with non-running components is safe."""
+        orchestrator = Orchestrator()
+        comp1 = MockComponent(name="comp1")
+        comp2 = MockComponent(name="comp2")
+        orchestrator.register(comp1)
+        orchestrator.register(comp2)
+        orchestrator.initialize_all()
+        # Don't start
+
+        # Should not raise
+        orchestrator.stop_all(timeout=1)
+
 
 class TestOrchestratorIndividualComponentControl:
     """Test individual component initialization, start, and stop."""
@@ -242,6 +278,44 @@ class TestOrchestratorIndividualComponentControl:
 
         with pytest.raises(ValueError, match="not registered"):
             orchestrator.stop_component("nonexistent")
+
+# tests/unit/test_orchestrator.py - Add to TestOrchestratorIndividualComponentControl:
+
+    def test_initialize_component_while_running_raises_error(self) -> None:
+        """Test that initializing a running component raises error."""
+        orchestrator = Orchestrator()
+        comp = MockRunnableComponent(name="test")
+        orchestrator.register(comp)
+        orchestrator.initialize_component("test")
+        orchestrator.start_component("test")
+
+        time.sleep(0.1)
+
+        with pytest.raises(RuntimeError, match="is running"):
+            orchestrator.initialize_component("test")
+
+        orchestrator.stop_all(timeout=1)
+
+    def test_start_component_not_initialized_raises_error(self) -> None:
+        """Test starting non-initialized component raises error."""
+        orchestrator = Orchestrator()
+        comp = MockRunnableComponent(name="test")
+        orchestrator.register(comp)
+        # Don't initialize
+
+        with pytest.raises(RuntimeError, match="not initialized"):
+            orchestrator.start_component("test")
+
+    def test_stop_component_not_running_is_safe(self) -> None:
+        """Test stopping non-running component is safe (no-op)."""
+        orchestrator = Orchestrator()
+        comp = MockComponent(name="test")
+        orchestrator.register(comp)
+        orchestrator.initialize_component("test")
+        # Don't start
+
+        # Should not raise
+        orchestrator.stop_component("test", timeout=1)
 
 
 class TestOrchestratorSignalHandling:

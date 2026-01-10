@@ -18,7 +18,7 @@ import signal
 import threading
 from typing import Any
 
-from cpu.components.base import ComponentInterface, HealthStatus
+from cpu.components.base import ComponentInterface, ComponentState, HealthStatus
 
 
 class Orchestrator:
@@ -70,9 +70,13 @@ class Orchestrator:
         Initialize all registered components.
 
         Raises:
-            RuntimeError: If any component initialization fails
+            RuntimeError: If any component initialization fails or is running
         """
         for name, component in self._components.items():
+            # check if component is running
+            if name in self._threads and self._threads[name].is_alive():
+                raise RuntimeError(f"Cannot initialize component {name}: component is running")
+
             try:
                 component.initialize()
             except Exception as err:
@@ -86,6 +90,10 @@ class Orchestrator:
             # check if component is already running
             if name in self._threads and self._threads[name].is_alive():
                 raise RuntimeError(f"Component {name} is already running")
+
+            # check if component is initialized
+            if component.get_state() != ComponentState.INITIALIZED:
+                raise RuntimeError(f"Component {name} is not initialized")
 
             thread = threading.Thread(
                 target=component.start,
@@ -122,10 +130,15 @@ class Orchestrator:
 
         Raises:
             ValueError: If component not registered
+            RuntimeError: If component is running
         """
         component = self._components.get(name)
         if component is None:
             raise ValueError(f"Component {name} not registered")
+
+        # check if component is running
+        if name in self._threads and self._threads[name].is_alive():
+            raise RuntimeError(f"Cannot initialize component {name}: component is running")
 
         try:
             component.initialize()
@@ -143,15 +156,19 @@ class Orchestrator:
 
         Raises:
             ValueError: If component not registered
-            RuntimeError: If component is already running
+            RuntimeError: If component is already running or not initialized
         """
         component = self._components.get(name)
         if component is None:
             raise ValueError(f"Component {name} not registered")
 
-        # Check if already running
+        # check if already running
         if name in self._threads and self._threads[name].is_alive():
             raise RuntimeError(f"Component {name} is already running")
+
+        # check if initialized
+        if component.get_state() != ComponentState.INITIALIZED:
+            raise RuntimeError(f"Component {name} is not initialized")
 
         thread = threading.Thread(
             target=component.start,
