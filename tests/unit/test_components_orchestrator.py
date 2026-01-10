@@ -8,10 +8,10 @@ Tests for component orchestrator.
 
 from __future__ import annotations
 
-import threading
 import time
 
 import pytest
+from cpu.orchestrator import Orchestrator
 
 from cpu.components.base import (
     ComponentInterface,
@@ -19,7 +19,6 @@ from cpu.components.base import (
     HealthStatus,
     RunnableComponent,
 )
-from cpu.orchestrator import Orchestrator
 from tests.unit.test_components_fixtures import MockComponent, MockRunnableComponent
 
 
@@ -95,9 +94,9 @@ class TestOrchestratorStartStop:
         """Test starting all components in threads."""
         orchestrator = Orchestrator()
 
-        comp1 = TestRunnableComponent(name="comp1")
+        comp1 = MockRunnableComponent(name="comp1")
         comp1.max_iterations = 10
-        comp2 = TestRunnableComponent(name="comp2")
+        comp2 = MockRunnableComponent(name="comp2")
         comp2.max_iterations = 10
 
         orchestrator.register(comp1)

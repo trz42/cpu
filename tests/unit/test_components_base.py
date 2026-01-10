@@ -16,7 +16,6 @@ import time
 import pytest
 
 from cpu.components.base import (
-    ComponentInterface,
     ComponentState,
     HealthStatus,
     RunnableComponent,
