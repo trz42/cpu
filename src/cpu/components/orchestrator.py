@@ -83,6 +83,10 @@ class Orchestrator:
     def start_all(self) -> None:
         """Start all components in separate threads."""
         for name, component in self._components.items():
+            # check if component is already running
+            if name in self._threads and self._threads[name].is_alive():
+                raise RuntimeError(f"Component {name} is already running")
+
             thread = threading.Thread(
                 target=component.start,
                 name=f"cpu-{name}",
@@ -108,6 +112,75 @@ class Orchestrator:
         for thread in self._threads.values():
             if thread.is_alive():
                 thread.join(timeout=per_thread_timeout)
+
+    def initialize_component(self, name: str) -> None:
+        """
+        Initialize a specific component.
+
+        Args:
+            name: Component name
+
+        Raises:
+            ValueError: If component not registered
+        """
+        component = self._components.get(name)
+        if component is None:
+            raise ValueError(f"Component {name} not registered")
+
+        try:
+            component.initialize()
+        except Exception as err:
+            raise RuntimeError(
+                f"Failed to initialize component {name}: {err}"
+            ) from err
+
+    def start_component(self, name: str) -> None:
+        """
+        Start a specific component in a thread.
+
+        Args:
+            name: Component name
+
+        Raises:
+            ValueError: If component not registered
+            RuntimeError: If component is already running
+        """
+        component = self._components.get(name)
+        if component is None:
+            raise ValueError(f"Component {name} not registered")
+
+        # Check if already running
+        if name in self._threads and self._threads[name].is_alive():
+            raise RuntimeError(f"Component {name} is already running")
+
+        thread = threading.Thread(
+            target=component.start,
+            name=f"cpu-{name}",
+            daemon=False,
+        )
+        self._threads[name] = thread
+        thread.start()
+
+    def stop_component(self, name: str, timeout: float | None = None) -> None:
+        """
+        Stop a specific component.
+
+        Args:
+            name: Component name
+            timeout: Maximum time to wait for shutdown
+
+        Raises:
+            ValueError: If component not registered
+        """
+        component = self._components.get(name)
+        if component is None:
+            raise ValueError(f"Component {name} not registered")
+
+        component.stop(timeout=timeout)
+
+        thread = self._threads.get(name)
+        if thread and thread.is_alive():
+            thread.join(timeout=timeout)
 
     def setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
