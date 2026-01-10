@@ -15,37 +15,13 @@ import time
 
 import pytest
 
-from cpu.components.base import ComponentInterface, ComponentState, HealthStatus, RunnableComponent
-
-
-class MockComponent(ComponentInterface):
-    """Mock component for testing."""
-
-    def __init__(self, name: str, config: dict[str, object] | None = None) -> None:
-        super().__init__(name, config)
-        self._initialized = False
-
-    def initialize(self) -> None:
-        """Initialize the component."""
-        self._initialized = True
-        self.state = ComponentState.INITIALIZED
-
-    def start(self) -> None:
-        """Start the component."""
-        if not self._initialized:
-            raise RuntimeError("Component not initialized")
-        self.state = ComponentState.RUNNING
-
-    def stop(self, timeout: float | None = None) -> None:
-        """Stop the component."""
-        del timeout  # unused in mocked method
-        self.state = ComponentState.STOPPED
-
-    def health_check(self) -> HealthStatus:
-        """Check component health."""
-        if self.state == ComponentState.RUNNING:
-            return HealthStatus.HEALTHY
-        return HealthStatus.UNHEALTHY
+from cpu.components.base import (
+    ComponentInterface,
+    ComponentState,
+    HealthStatus,
+    RunnableComponent,
+)
+from tests.unit.test_components_fixtures import MockComponent, MockRunnableComponent
 
 
 class TestComponentEnums:
@@ -122,36 +98,12 @@ class TestComponentInterface:
         assert component.health_check() == HealthStatus.UNHEALTHY
 
 
-class TestRunnableComponent(RunnableComponent):
-    """Test implementation of runnable component."""
-
-    def __init__(self, name: str, config: dict[str, object] | None = None) -> None:
-        super().__init__(name, config)
-        self.iterations = 0
-        self.max_iterations = 5
-
-    def initialize(self) -> None:
-        """Initialize the component."""
-        self.state = ComponentState.INITIALIZED
-
-    def process_iteration(self) -> None:
-        """Process one iteration."""
-        self.iterations += 1
-        time.sleep(0.1)
-        if self.iterations >= self.max_iterations:
-            self._stop_requested = True
-
-    def health_check(self) -> HealthStatus:
-        """Check component health."""
-        return HealthStatus.HEALTHY if self.is_running() else HealthStatus.UNHEALTHY
-
-
 class TestRunnableComponentClass:
     """Test RunnableComponent base class."""
 
     def test_runnable_component_start_without_initialize_fails(self) -> None:
         """Test that starting without initialization raises RuntimeError."""
-        component = TestRunnableComponent(name="test")
+        component = MockRunnableComponent(name="test")
         # Don't call initialize()
 
         with pytest.raises(RuntimeError, match="not initialized"):
@@ -161,7 +113,8 @@ class TestRunnableComponentClass:
         """Test runnable component executes iterations."""
         import threading
 
-        component = TestRunnableComponent(name="test")
+        component = MockRunnableComponent(name="test")
+        component.max_iterations = 5  # lower default of 10 to 5
         component.initialize()
 
         # Start in thread
@@ -178,20 +131,20 @@ class TestRunnableComponentClass:
         """Test runnable component responds to stop signal."""
         import threading
 
-        component = TestRunnableComponent(name="test")
-        component.max_iterations = 100  # Would run for 10 seconds
+        component = MockRunnableComponent(name="test")
+        component.max_iterations = 100  # would run for 10 seconds
         component.initialize()
 
         thread = threading.Thread(target=component.start)
         thread.start()
 
-        time.sleep(0.3)  # Let it run a bit
+        time.sleep(0.3)  # let it run a bit
         component.stop(timeout=1)
 
         thread.join(timeout=2)
 
         assert component.get_state() == ComponentState.STOPPED
-        assert component.iterations < 100  # Stopped early
+        assert component.iterations < 100  # stopped early
 
     def test_runnable_component_exception_sets_failed_state(self) -> None:
         """Test that exceptions in process_iteration set FAILED state."""
