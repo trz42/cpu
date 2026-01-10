@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (C) 2025 CPU contributors
+# Copyright (C) 2025-2026 CPU contributors
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
@@ -24,7 +24,7 @@ class TestMainCLI:
 
     def test_main_with_default_config(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test running main with default config file."""
-        # Create a minimal config file in the current directory
+        # create a minimal config file in the current directory
         config_yaml = "config.yaml"
         config_file = tmp_path / config_yaml
         config_file.write_text("""
@@ -33,20 +33,23 @@ bot:
   log_level: INFO
 """)
 
-        # Change to temp directory so default config.yaml is found
+        # change to temp directory so default config.yaml is found
         import os
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
 
-            # Run main
-            with patch.object(sys, "argv", ["cpu"]):
+            # run main
+            with (
+                patch("cpu.__main__.run_orchestrator"),
+                patch.object(sys, "argv", ["cpu"])
+            ):
                 exit_code = main()
 
-            # Should succeed
+            # should succeed
             assert exit_code == 0
 
-            # Check output
+            # check output
             captured = capsys.readouterr()
             assert "CPU" in captured.out
             assert "EESSI build-and-deploy bot" in captured.out
@@ -67,7 +70,10 @@ bot:
   log_level: DEBUG
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 0
@@ -84,7 +90,10 @@ bot:
   num_workers: 2
 """)
 
-        with patch.object(sys, "argv", ["cpu", "-c", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "-c", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 0
@@ -96,10 +105,13 @@ bot:
         """Test running main with non-existent config file."""
         nonexistent = tmp_path / "nonexistent.yaml"
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(nonexistent)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(nonexistent)])
+        ):
             exit_code = main()
 
-        # Should fail
+        # should fail
         assert exit_code != 0
 
         captured = capsys.readouterr()
@@ -115,7 +127,10 @@ bot:
     missing: close bracket
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code != 0
@@ -132,7 +147,10 @@ bot:
 # Missing required: num_workers
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code != 0
@@ -143,11 +161,14 @@ bot:
 
     def test_main_with_help_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test running main with --help flag."""
-        with patch.object(sys, "argv", ["cpu", "--help"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--help"]),
+            pytest.raises(SystemExit) as exc_info
+        ):
+            main()
 
-            # Help should exit with 0
+            # help should exit with 0
             assert exc_info.value.code == 0
 
         captured = capsys.readouterr()
@@ -157,18 +178,21 @@ bot:
 
     def test_main_with_version_flag(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test running main with --version flag."""
-        with patch.object(sys, "argv", ["cpu", "--version"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--version"]),
+            pytest.raises(SystemExit) as exc_info
+        ):
+            main()
 
             assert exc_info.value.code == 0
 
         captured = capsys.readouterr()
 
-        # Should print version
+        # should print version
         assert "cpu" in captured.out.lower()
 
-        # Version should be present (either real version or "unknown")
+        # version should be present (either real version or "unknown")
         output = captured.out.lower()
         assert any(word in output for word in ["version", "v0.", "unknown"])
 
@@ -180,12 +204,15 @@ bot:
   num_workers: 4
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             main()
 
         captured = capsys.readouterr()
 
-        # Should show version in output
+        # should show version in output
         assert "version" in captured.out.lower()
 
     def test_main_shows_executable_path(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -196,7 +223,10 @@ bot:
   num_workers: 4
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             main()
 
         captured = capsys.readouterr()
@@ -213,15 +243,18 @@ bot:
   log_level: INFO
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"])
+        ):
             main()
 
         captured = capsys.readouterr()
 
-        # Should mention environment variables
+        # should mention environment variables
         assert "environment" in captured.out.lower() or "env" in captured.out.lower()
 
-        # Should mention the prefix
+        # should mention the prefix
         assert "CPU_" in captured.out
 
     def test_main_with_env_override(
@@ -235,29 +268,35 @@ bot:
   log_level: INFO
 """)
 
-        # Set environment override
+        # set environment override
         monkeypatch.setenv("CPU_BOT__NUM_WORKERS", "16")
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"])
+        ):
             main()
 
         captured = capsys.readouterr()
 
-        # Should show the overridden value
+        # should show the overridden value
         assert "16" in captured.out
 
     def test_main_invalid_argument(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test running main with invalid argument."""
-        with patch.object(sys, "argv", ["cpu", "--invalid-arg"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--invalid-arg"]),
+            pytest.raises(SystemExit) as exc_info
+        ):
+            main()
 
-            # Should exit with error
+            # should exit with error
             assert exc_info.value.code != 0
 
         captured = capsys.readouterr()
 
-        # Should show error message
+        # should show error message
         assert "error" in captured.err.lower() or "unrecognized" in captured.err.lower()
 
 
@@ -273,10 +312,13 @@ other:
   setting: value
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
-        # Should fail validation
+        # should fail validation
         assert exit_code != 0
 
         captured = capsys.readouterr()
@@ -292,15 +334,18 @@ bot:
   log_level: INFO
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
-        # Should succeed
+        # should succeed
         assert exit_code == 0
 
         captured = capsys.readouterr()
 
-        # Should show configuration was loaded
+        # should show configuration was loaded
         assert "config" in captured.out.lower()
 
 
@@ -319,15 +364,18 @@ bot:
   banner_effect_type: NonExistentEffect
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
-        # Should succeed with fallback to plain banner
+        # should succeed with fallback to plain banner
         assert exit_code == 0
 
         captured = capsys.readouterr()
 
-        # Should still show banner content
+        # should still show banner content
         assert "CPU" in captured.out
 
     def test_banner_with_effects_disabled(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -339,7 +387,10 @@ bot:
   banner_effects: false
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 0
@@ -360,18 +411,21 @@ bot:
   log_level: INFO
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 0
 
         captured = capsys.readouterr()
 
-        # Should show basic info
+        # should show basic info
         assert "Version:" in captured.out
-        assert "Startup complete!" in captured.out
+        assert "Shutdown complete!" in captured.out
 
-        # Should NOT show extended info
+        # should NOT show extended info
         assert "Configuration:" not in captured.out
         assert "Environment Variable Overrides:" not in captured.out
 
@@ -384,14 +438,17 @@ bot:
   log_level: INFO
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file), "--extended-startup-info"])
+        ):
             exit_code = main()
 
         assert exit_code == 0
 
         captured = capsys.readouterr()
 
-        # Should show extended info
+        # should show extended info
         assert "Configuration:" in captured.out
         assert "Workers:" in captured.out
         assert "Environment Variable Overrides:" in captured.out
@@ -408,19 +465,20 @@ bot:
   num_workers: 4
 """)
 
-        # Mock Config.load to raise KeyboardInterrupt
+        # mock Config.load to raise KeyboardInterrupt
         from cpu.config.config import Config
 
         def mock_load(_: None) -> None:
             raise KeyboardInterrupt()
 
         with (
+            patch("cpu.__main__.run_orchestrator"),
             patch.object(Config, "load", mock_load),
             patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
         ):
             exit_code = main()
 
-        # Should exit with 130 (standard for SIGINT)
+        # should exit with 130 (standard for SIGINT)
         assert exit_code == 130
 
         captured = capsys.readouterr()
@@ -434,19 +492,20 @@ bot:
   num_workers: 4
 """)
 
-        # Mock Config.load to raise unexpected error
+        # mock Config.load to raise unexpected error
         from cpu.config.config import Config
 
         def mock_load() -> None:
             raise RuntimeError("Unexpected error occurred")
 
         with (
+            patch("cpu.__main__.run_orchestrator"),
             patch.object(Config, "load", mock_load),
             patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
         ):
             exit_code = main()
 
-        # Should exit with non-zero
+        # should exit with non-zero
         assert exit_code == 1
 
         captured = capsys.readouterr()
@@ -456,9 +515,12 @@ bot:
     def test_file_not_found_error_explicit(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test explicit FileNotFoundError handling."""
         config_file = tmp_path / "missing.yaml"
-        # Don't create the file
+        # don't create the file
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -480,7 +542,7 @@ bot:
   banner_effect_type: Slide
 """)
 
-        # Mock importlib to raise a generic exception
+        # mock importlib to raise a generic exception
         import importlib
         original_import = importlib.import_module
 
@@ -490,17 +552,18 @@ bot:
             return original_import(name)
 
         with (
+            patch("cpu.__main__.run_orchestrator"),
             patch("importlib.import_module", side_effect=mock_import),
             patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
         ):
             exit_code = main()
 
-        # Should succeed with fallback
+        # should succeed with fallback
         assert exit_code == 0
 
         captured = capsys.readouterr()
 
-        # Should show plain banner (fallback)
+        # should show plain banner (fallback)
         assert "CPU" in captured.out
         assert "EESSI build-and-deploy bot" in captured.out
 
@@ -518,11 +581,11 @@ bot:
   banner_effect_type: Slide
 """)
 
-        # Mock the terminaltexteffects module
+        # mock the terminaltexteffects module
         #import sys
         from unittest.mock import MagicMock
 
-        # # Create mock effect class and module
+        # # create mock effect class and module
         # mock_frame = MagicMock()
         # mock_frame.__iter__ = lambda: iter(["frame1", "frame2"])
 
@@ -535,11 +598,11 @@ bot:
         mock_effect_instance.terminal_output = lambda: mock_terminal
         # mock_effect_instance.__iter__ = lambda: iter(["frame1", "frame2"])
 
-        # Create a proper iterator that will execute the loop body
+        # create a proper iterator that will execute the loop body
         frames = ["frame1", "frame2", "frame3"]
 
         def mock_iter(_: Any) -> Iterator[str]:
-            # This actually yields frames so the for loop executes
+            # this actually yields frames so the for loop executes
             yield from frames
 
         mock_effect_instance.__iter__ = mock_iter
@@ -549,7 +612,7 @@ bot:
         mock_module = MagicMock()
         mock_module.Slide = mock_effect_class
 
-        # Mock importlib.import_module to return our mock
+        # mock importlib.import_module to return our mock
         import importlib
         original_import = importlib.import_module
 
@@ -559,16 +622,17 @@ bot:
             return original_import(name)
 
         with (
+            patch("cpu.__main__.run_orchestrator"),
             patch("importlib.import_module", side_effect=mock_import),
             patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
         ):
             exit_code = main()
 
-        # Should succeed
+        # should succeed
         assert exit_code == 0
 
-        # # Verify effect was called
-        # Verify effect was created and terminal.print was called for each frame
+        # # verify effect was called
+        # verify effect was created and terminal.print was called for each frame
         mock_effect_class.assert_called_once()
         # terminal.print should be called once per frame
         assert mock_terminal.print.call_count == len(frames)
@@ -584,10 +648,13 @@ bot:
   num_workers: [unclosed bracket
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
-        # Should exit with error
+        # should exit with error
         assert exit_code == 1
 
         captured = capsys.readouterr()
@@ -598,14 +665,17 @@ bot:
         config_file = tmp_path / "bad.yaml"
         config_file.write_text("invalid: yaml: [unclosed")
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 1
 
         captured = capsys.readouterr()
 
-        # Verify it goes to stderr and has expected format
+        # verify it goes to stderr and has expected format
         assert "Error: Configuration error:" in captured.err
 
     def test_config_validation_error_handler_output(
@@ -619,14 +689,17 @@ bot:
   # Missing num_workers
 """)
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 1
 
         captured = capsys.readouterr()
 
-        # Verify all three print statements are executed
+        # verify all three print statements are executed
         assert "Error: Configuration validation failed:" in captured.err
         assert "Required configuration keys:" in captured.err
         assert "bot.num_workers: Number of" in captured.err
@@ -635,7 +708,10 @@ bot:
         """Test FileNotFoundError handler output (lines 254-255)."""
         config_file = tmp_path / "nonexistent.yaml"
 
-        with patch.object(sys, "argv", ["cpu", "--config", str(config_file)]):
+        with (
+            patch("cpu.__main__.run_orchestrator"),
+            patch.object(sys, "argv", ["cpu", "--config", str(config_file)])
+        ):
             exit_code = main()
 
         assert exit_code == 1
@@ -658,10 +734,11 @@ bot:
 """)
 
         with (
+            patch("cpu.__main__.run_orchestrator"),
             patch.object(sys, "argv", ["cpu", "--config", str(config_file)]),
             pytest.raises(SystemExit) as exc_info,
         ):
             run()
 
-            # Should exit with 0 for success
+            # should exit with 0 for success
             assert exc_info.value.code == 0
