@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 
 import pytest
-from cpu.orchestrator import Orchestrator
+from cpu.components.orchestrator import Orchestrator
 
 from cpu.components.base import (
     ComponentInterface,
