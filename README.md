@@ -1,10 +1,7 @@
 # CPU - The next-generation EESSI build-and-deploy bot
 
 <img width="128" height="128" alt="Image"
-     src="https://github.com/user-attachments/assets/6b2d7121-fe49-40c8-b3ed-b935e537853c"
-     align="left" style="margin-right: 20px; margin-bottom: 10px;" />
-
-<br />
+     src="https://github.com/user-attachments/assets/6b2d7121-fe49-40c8-b3ed-b935e537853c" /><br />
 
 CPU is the next-generation EESSI build-and-deploy bot. It tries to achieve three main
 objectives:

@@ -37,6 +37,7 @@ dependencies = [
     "APScheduler>=3.10.0",        # Periodic task scheduling (timer component)
     "cryptography>=41.0.0",       # Encryption for secret storage and webhook signature validation
     "typing-extensions>=4.5.0; python_version < '3.10'",  # Backport modern type hints for Python 3.9
+    "terminaltexteffects==0.12.0",  # TerminalTextEffects (version 0.13.0 failed to install)
 ]
 
 [project.optional-dependencies]
@@ -65,7 +66,6 @@ dev = [
     "types-PyYAML==6.0.12.20250915",    # Type stubs for PyYAML
     "types-requests==2.32.4.20250913",  # Type stubs for requests
 ]
-effects = ["terminaltexteffects==0.12.0"]  # TerminalTextEffects (version 0.13.0 failed to install)
 
 [project.scripts]
 cpu = "cpu.__main__:main"

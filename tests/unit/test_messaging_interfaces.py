@@ -3,7 +3,7 @@
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
-Tests for cpu.messaging.base module.
+Tests for cpu.messaging.interfaces module.
 
 Tests abstract interfaces by creating concrete test implementations.
 This ensures the interfaces are well-defined and implementable.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from cpu.messaging.base import (
+from cpu.messaging.interfaces import (
     MessageBusInterface,
     MessageDeliveryInterface,
     MessageQueueInterface,

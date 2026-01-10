@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.0.6] - 2026-01-10
+
+### Added
+
+- ThreadMessageQueue and ThreadMessageBus incl unit tests
+- message delivery guarantee levels incl unit tests
+- secrets audit logging incl unit tests
+- secrets encryption/decryption incl unit tests
+- secrets contexts incl unit tests
+- obtain secrets from env vars or files
+  - supports plain, base64 encoded and encrypted values
+  - unit tests for the above
+- secrets manager incl unit tests
+- component framework with classes for base and orchestrator
+  - ability to stop bot gracefully with CTRL-C (catches signal)
+  - unit tests for the component framework
+  - integration tests for using component framework in main()
+
+### Changed
+
+- make TTE install mandatory
+- polished README.md
+- improved file name structure
+- extended config.yaml.example (complete overhaul)
+- extended `__init__.py` in config module (secrets handling)
+- updated startup information
+- changed tests in main to acknowledge use of orchestrator
+
+### Fixed
+
+- none
+
 ## [0.0.5] - 2025-11-22
 
 ### Added
