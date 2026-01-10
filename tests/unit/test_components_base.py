@@ -11,9 +11,10 @@ This ensures the interfaces are well-defined and implementable.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
-import time
 from cpu.components.base import ComponentInterface, ComponentState, HealthStatus, RunnableComponent
 
 
@@ -37,6 +38,7 @@ class MockComponent(ComponentInterface):
 
     def stop(self, timeout: float | None = None) -> None:
         """Stop the component."""
+        del timeout  # unused in mocked method
         self.state = ComponentState.STOPPED
 
     def health_check(self) -> HealthStatus:

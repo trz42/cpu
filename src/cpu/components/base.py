@@ -100,6 +100,7 @@ class ComponentInterface(ABC):
 
         Must set state to STOPPED on success.
         """
+        del timeout  # parameter not used in interface definition
         pass
 
     @abstractmethod
@@ -175,5 +176,6 @@ class RunnableComponent(ComponentInterface):
 
     def stop(self, timeout: float | None = None) -> None:
         """Request component to stop."""
+        del timeout  # not used in base implementation
         self._stop_requested = True
         self.state = ComponentState.STOPPING
