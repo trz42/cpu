@@ -53,7 +53,7 @@ class TestLoggingComponent:
     def test_logging_component_skips_non_log_messages(self, tmp_path: Path) -> None:
         """Test component ignores non-LOG message types."""
         log_file = tmp_path / "test.log"
-        queue = ThreadMessageQueue()
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
         component = LoggingComponent(
             name="logger",
