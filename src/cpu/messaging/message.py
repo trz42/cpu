@@ -44,6 +44,9 @@ class MessageType(Enum):
     SHUTDOWN = "shutdown"
     HEALTH_CHECK = "health_check"
 
+    # logging
+    LOG = "log"
+
 
 @dataclass
 class Message:
