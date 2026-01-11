@@ -15,7 +15,7 @@ from typing import Any
 from cpu.components.base import ComponentState, HealthStatus, RunnableComponent
 from cpu.logging.sanitizer import LogSanitizer
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError
-from cpu.messaging.message import Message
+from cpu.messaging.message import Message, MessageType
 
 
 class LoggingComponent(RunnableComponent):

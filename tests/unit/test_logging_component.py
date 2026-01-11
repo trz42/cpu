@@ -12,9 +12,8 @@ import logging
 import time
 from pathlib import Path
 
-from cpu.logging.component import LoggingComponent
-
 from cpu.components.base import ComponentState, HealthStatus
+from cpu.logging.component import LoggingComponent
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
