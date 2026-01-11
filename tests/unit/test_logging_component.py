@@ -30,7 +30,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -49,6 +49,33 @@ class TestLoggingComponent:
         content = log_file.read_text()
         assert "Test message" in content
 
+# tests/unit/logging/test_logging_component.py - add to TestLoggingComponent:
+
+    def test_logging_component_skips_non_log_messages(self, tmp_path: Path) -> None:
+        """Test component ignores non-LOG message types."""
+        log_file = tmp_path / "test.log"
+        queue = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+        )
+        component.initialize()
+
+        # send non-LOG message
+        msg = Message(
+            type=MessageType.WEBHOOK,
+            payload={"message": "Should be ignored"},
+        )
+        queue.put(msg)
+
+        component.process_iteration()
+
+        # log file should be empty (no logging happened)
+        content = log_file.read_text()
+        assert "Should be ignored" not in content
+
     def test_logging_component_sanitizes_before_write(self, tmp_path: Path) -> None:
         """Test messages are sanitized."""
         log_file = tmp_path / "test.log"
@@ -57,7 +84,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -82,7 +109,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -99,7 +126,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -120,7 +147,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
