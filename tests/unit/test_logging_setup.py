@@ -11,9 +11,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from cpu.logging.setup import configure_logging
-
 from cpu.config.config import Config
+from cpu.logging.setup import configure_logging
 
 
 class TestLoggingSetup:
