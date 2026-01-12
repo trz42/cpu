@@ -62,14 +62,15 @@ class TestConfigLoading:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         config = Config(config_file=config_file)
         config.load()
 
         assert config.get("bot.num_workers") == 4
-        assert config.get("bot.log_level") == "INFO"
+        assert config.get("bot.logging.level") == "INFO"
 
     def test_load_nested_config(self, tmp_path: Path) -> None:
         """Test loading configuration with nested structures."""
@@ -128,15 +129,16 @@ bot:
 # This is a comment
 bot:
   num_workers: 4  # Number of worker threads
-  # log_level: DEBUG
-  log_level: INFO
+  logging:
+    # level: DEBUG
+    level: INFO
 """)
 
         config = Config(config_file=config_file)
         config.load()
 
         assert config.get("bot.num_workers") == 4
-        assert config.get("bot.log_level") == "INFO"
+        assert config.get("bot.logging.level") == "INFO"
 
     def test_load_can_be_called_multiple_times(self, tmp_path: Path) -> None:
         """Test that load() can be called multiple times (reloads config)."""
@@ -163,7 +165,8 @@ class TestConfigGet:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
   messaging:
     timeout: 30
   enabled: true
@@ -194,7 +197,8 @@ bot:
         bot_config = loaded_config.get("bot")
         assert isinstance(bot_config, dict)
         assert bot_config["num_workers"] == 4
-        assert bot_config["log_level"] == "INFO"
+        assert isinstance(bot_config["logging"], dict)
+        assert bot_config["logging"]["level"] == "INFO"
 
     def test_get_boolean_value(self, loaded_config: Config) -> None:
         """Test getting boolean configuration value."""
@@ -222,7 +226,7 @@ bot:
     def test_get_preserves_type(self, loaded_config: Config) -> None:
         """Test that get() preserves the original type from YAML."""
         assert isinstance(loaded_config.get("bot.num_workers"), int)
-        assert isinstance(loaded_config.get("bot.log_level"), str)
+        assert isinstance(loaded_config.get("bot.logging.level"), str)
         assert isinstance(loaded_config.get("bot.enabled"), bool)
         assert isinstance(loaded_config.get("bot.ratio"), float)
 
@@ -414,7 +418,8 @@ class TestConfigValidation:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         config = Config(config_file=config_file)
@@ -443,13 +448,14 @@ bot:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         config = Config(config_file=config_file)
         config.load()
 
-        config.validate(required_keys=["bot.num_workers", "bot.log_level"])
+        config.validate(required_keys=["bot.num_workers", "bot.logging.level"])
 
     def test_validate_reports_all_missing_keys(self, tmp_path: Path) -> None:
         """Test validation error reports all missing keys."""
