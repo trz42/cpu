@@ -156,7 +156,7 @@ class TestLoggingComponent:
     def test_logging_component_flush_handler(self, tmp_path: Path) -> None:
         """Test flush handler calls flush."""
         import signal
-        from unittest.mock import Mock
+        from unittest.mock import patch
 
         log_file = tmp_path / "test.log"
         queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
@@ -169,10 +169,9 @@ class TestLoggingComponent:
         component.initialize()
 
         # mock flush to verify it's called
-        component.flush = Mock()
+        with patch.object(component, 'flush') as mock_flush:
+            # call handler directly
+            component._flush_handler(signal.SIGUSR1, None)
 
-        # call handler directly
-        component._flush_handler(signal.SIGUSR1, None)
-
-        # verify flush was called
-        component.flush.assert_called_once()
+            # verify flush was called
+            mock_flush.assert_called_once()
