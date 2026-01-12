@@ -9,6 +9,7 @@ Tests for log rotation with compression.
 from __future__ import annotations
 
 import gzip
+import logging
 from pathlib import Path
 
 from cpu.logging.rotation import CompressingRotatingFileHandler
@@ -29,9 +30,16 @@ class TestCompressingRotatingFileHandler:
 
         # write enough to trigger rotation
         for item in range(20):
-            handler.emit(handler.makeRecord(
-                "test", 20, "", 1, f"Message {item}" * 10, (), None
-            ))
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=1,
+                msg=f"Message {item}" * 10,
+                args=(),
+                exc_info=None,
+            )
+            handler.emit(record)
 
         handler.close()
 
@@ -50,9 +58,16 @@ class TestCompressingRotatingFileHandler:
 
         # trigger rotation
         for item in range(10):
-            handler.emit(handler.makeRecord(
-                "test", 20, "", 1, f"Message {item}" * 10, (), None
-            ))
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=1,
+                msg=f"Message {item}" * 10,
+                args=(),
+                exc_info=None,
+            )
+            handler.emit(record)
 
         handler.close()
 
@@ -76,9 +91,16 @@ class TestCompressingRotatingFileHandler:
 
         # trigger multiple rotations
         for item in range(30):
-            handler.emit(handler.makeRecord(
-                "test", 20, "", 1, f"Message {item}" * 10, (), None
-            ))
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=1,
+                msg=f"Message {item}" * 10,
+                args=(),
+                exc_info=None,
+            )
+            handler.emit(record)
 
         handler.close()
 
@@ -98,9 +120,16 @@ class TestCompressingRotatingFileHandler:
         )
 
         for item in range(10):
-            handler.emit(handler.makeRecord(
-                "test", 20, "", 1, f"Message {item}" * 10, (), None
-            ))
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=1,
+                msg=f"Message {item}" * 10,
+                args=(),
+                exc_info=None,
+            )
+            handler.emit(record)
 
         handler.close()
 
@@ -120,9 +149,16 @@ class TestCompressingRotatingFileHandler:
 
         test_message = "UNIQUE_TEST_MESSAGE"
         for item in range(10):
-            handler.emit(handler.makeRecord(
-                "test", 20, "", 1, f"{test_message} {item}" * 5, (), None
-            ))
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=1,
+                msg=f"{test_message} {item}" * 10,
+                args=(),
+                exc_info=None,
+            )
+            handler.emit(record)
 
         handler.close()
 
