@@ -48,8 +48,6 @@ class TestLoggingComponent:
         content = log_file.read_text()
         assert "Test message" in content
 
-# tests/unit/logging/test_logging_component.py - add to TestLoggingComponent:
-
     def test_logging_component_skips_non_log_messages(self, tmp_path: Path) -> None:
         """Test component ignores non-LOG message types."""
         log_file = tmp_path / "test.log"
@@ -87,7 +85,7 @@ class TestLoggingComponent:
         )
         component.initialize()
 
-        # Send message with secret
+        # send message with secret
         msg = Message(
             type=MessageType.LOG,
             payload={"level": logging.INFO, "message": "Token: ghp_1234567890123456789012345678901234"},
@@ -175,3 +173,54 @@ class TestLoggingComponent:
 
             # verify flush was called
             mock_flush.assert_called_once()
+
+    def test_logging_component_health_check_unhealthy_when_not_initialized(self, tmp_path: Path) -> None:
+        """Test health check returns unhealthy when not initialized."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+        )
+        # don't initialize
+
+        assert component.health_check() == HealthStatus.UNHEALTHY
+
+    def test_logging_component_stop_without_handler(self, tmp_path: Path) -> None:
+        """Test stop when handler is None."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+        )
+        # don't initialize (no handler)
+
+        # should not raise
+        component.stop()
+
+    def test_logging_component_flush_handler_ignores_other_signals(self, tmp_path: Path) -> None:
+        """Test flush handler ignores non-SIGUSR1 signals."""
+        import signal
+        from unittest.mock import patch
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+        )
+        component.initialize()
+
+        with patch.object(component, 'flush') as mock_flush:
+            # call with SIGTERM instead
+            component._flush_handler(signal.SIGTERM, None)
+
+            # flush should not be called
+            mock_flush.assert_not_called()
