@@ -18,7 +18,10 @@ from typing import NoReturn
 from cpu import __version__
 from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config, ConfigError, ConfigValidationError
+from cpu.logging.component import LoggingComponent
 from cpu.logging.setup import configure_logging
+from cpu.messaging.message import Message
+from cpu.messaging.queue_thread import ThreadMessageQueue
 
 
 def create_orchestrator(config: Config) -> Orchestrator:
@@ -33,7 +36,15 @@ def create_orchestrator(config: Config) -> Orchestrator:
     """
     orchestrator = Orchestrator()
 
-    del config  # not yet used
+    # create logging component first
+    log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+    log_component = LoggingComponent(
+        name="logger",
+        log_queue=log_queue,
+        config=config.get("bot.logging", {}),
+    )
+    orchestrator.register(log_component)
+
     # TODO register components as they're implemented
     # orchestrator.register(EventHandlerComponent(...))
     # orchestrator.register(JobManagerComponent(...))
