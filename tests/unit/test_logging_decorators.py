@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 import pytest
+
 from cpu.logging.decorators import trace_calls
 
 
