@@ -14,7 +14,7 @@ Example:
     >>> config = Config(config_file='config.yaml', env_prefix='CPU_')
     >>> config.load()
     >>> num_workers = config.get('bot.num_workers', default=4)
-    >>> config.validate(required_keys=['bot.num_workers', 'bot.log_level'])
+    >>> config.validate(required_keys=['bot.num_workers', 'bot.logging.level'])
 """
 
 from __future__ import annotations
@@ -203,7 +203,7 @@ class Config:
             ...     print("Configuration incomplete")
 
             # Successful validation
-            >>> config.validate(['bot.num_workers', 'bot.log_level'])
+            >>> config.validate(['bot.num_workers', 'bot.logging.level'])
             True
         """
         if not self._loaded:

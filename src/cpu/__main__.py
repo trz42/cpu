@@ -9,6 +9,7 @@ Main entry point for the application.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import NoReturn
 from cpu import __version__
 from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config, ConfigError, ConfigValidationError
+from cpu.logging.setup import configure_logging
 
 
 def create_orchestrator(config: Config) -> Orchestrator:
@@ -85,8 +87,8 @@ Environment Variables:
   Configuration values can be overridden using environment variables with the
   CPU_ prefix. Use double underscores (__) to separate nested keys:
 
-    CPU_BOT__NUM_WORKERS=8       # Overrides bot.num_workers
-    CPU_BOT__LOG_LEVEL=DEBUG     # Overrides bot.log_level
+    CPU_BOT__NUM_WORKERS=8         # Overrides bot.num_workers
+    CPU_BOT__LOGGING__LEVEL=DEBUG  # Overrides bot.logging.level
 
 Examples:
   cpu                            # Use default config.yaml
@@ -215,7 +217,7 @@ def create_startup_info(config_file: Path, config: Config, verbose: bool) -> str
         # Print configuration summary
         startup_info += "Configuration:\n"
         startup_info += f"  Workers:        {config.get('bot.num_workers', 'not set')}\n"
-        startup_info += f"  Log level:      {config.get('bot.log_level', 'not set')}\n"
+        startup_info += f"  Log level:      {config.get('bot.logging.level', 'not set')}\n"
         startup_info += "\n"
 
         # Print environment variable information
@@ -223,8 +225,8 @@ def create_startup_info(config_file: Path, config: Config, verbose: bool) -> str
         startup_info += "  You can override configuration values using environment variables\n"
         startup_info += "  with the CPU_ prefix and double underscores for nesting:\n"
         startup_info += "\n"
-        startup_info += "    CPU_BOT__NUM_WORKERS=8       # Override bot.num_workers\n"
-        startup_info += "    CPU_BOT__LOG_LEVEL=DEBUG     # Override bot.log_level\n"
+        startup_info += "    CPU_BOT__NUM_WORKERS=8         # Override bot.num_workers\n"
+        startup_info += "    CPU_BOT__LOGGING__LEVEL=DEBUG  # Override bot.logging.level\n"
         startup_info += "\n"
 
         # Check if any environment overrides are active
@@ -283,6 +285,11 @@ def main() -> int:
 
         # validate configuration
         validate_configuration(config)
+
+        # IMPORTANT: configure logging BEFORE components start
+        configure_logging(config)
+        logger = logging.getLogger(__name__)
+        logger.info("CPU Bot starting...")
 
         # create banner header
         banner = create_header()
