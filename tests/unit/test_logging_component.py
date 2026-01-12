@@ -29,7 +29,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
         )
         component.initialize()
 
@@ -83,7 +83,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
         )
         component.initialize()
 
@@ -108,7 +108,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
         )
         component.initialize()
 
@@ -125,7 +125,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
         )
         component.initialize()
 
@@ -146,9 +146,33 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "level": "INFO"},
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
         )
         component.initialize()
 
         # should be healthy when initialized
         assert component.health_check() == HealthStatus.HEALTHY
+
+    def test_logging_component_flush_handler(self, tmp_path: Path) -> None:
+        """Test flush handler calls flush."""
+        import signal
+        from unittest.mock import Mock
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+        )
+        component.initialize()
+
+        # mock flush to verify it's called
+        component.flush = Mock()
+
+        # call handler directly
+        component._flush_handler(signal.SIGUSR1, None)
+
+        # verify flush was called
+        component.flush.assert_called_once()
