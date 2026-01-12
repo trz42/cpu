@@ -9,6 +9,7 @@ Queue-based logging component for async log writes.
 from __future__ import annotations
 
 import logging
+import signal
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,9 @@ class LoggingComponent(RunnableComponent):
 
     def initialize(self) -> None:
         """Setup file handler and logger."""
+        # setup flush handler for flush
+        self.setup_flush_signal()
+
         log_file = self.config.get("bot.logging.file", "logs/cpu.log")
         log_level = self.config.get("bot.logging.level", "INFO")
         log_format = self.config.get(
@@ -102,3 +106,18 @@ class LoggingComponent(RunnableComponent):
         if self._file_handler:
             self._file_handler.flush()
             self._file_handler.close()
+
+    def flush(self) -> None:
+        """Flush all buffered logs immediately."""
+        if self._file_handler:
+            self._file_handler.flush()
+
+    def setup_flush_signal(self) -> None:
+        """Setup SIGUSR1 handler for flushing."""
+        signal.signal(signal.SIGUSR1, self._flush_handler)
+
+    def _flush_handler(self, signum: int, frame: Any) -> None:
+        """Handle flush signal."""
+        del frame  # unused
+        if signum == signal.SIGUSR1:
+            self.flush()
