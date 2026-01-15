@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.7] - 2026-01-15
+
+### Added
+
+- logging infrastructure including
+  - log sanitation
+  - log rotation & compression
+  - call decorator
+  - log flushing at `SIGUSR1`
+  - central LoggingComponent that handles log messages
+  - new message type `LOG`
+  - starting LoggingComponent through orchestrator
+- unit and integration tests for logging
+
+### Changed
+
+- none
+
+### Fixed
+
+- none
+
 ## [0.0.6] - 2026-01-10
 
 ### Added
