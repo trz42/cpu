@@ -29,8 +29,9 @@ class TestCreateOrchestrator:
         orchestrator = create_orchestrator(config)
 
         assert orchestrator is not None
-        # no components registered yet (placeholder implementation)
-        assert len(orchestrator._components) == 0
+        # increase right-hand value with increasing number of components
+        # TODO maybe this should be configurable and then compare against configured number
+        assert len(orchestrator._components) == 1
 
 
 class TestRunOrchestrator:

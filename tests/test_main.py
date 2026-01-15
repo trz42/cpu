@@ -30,7 +30,8 @@ class TestMainCLI:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         # change to temp directory so default config.yaml is found
@@ -67,7 +68,8 @@ bot:
         config_file.write_text("""
 bot:
   num_workers: 8
-  log_level: DEBUG
+  logging:
+    level: DEBUG
 """)
 
         with (
@@ -143,7 +145,8 @@ bot:
         config_file = tmp_path / "incomplete.yaml"
         config_file.write_text("""
 bot:
-  log_level: INFO
+  logging:
+    level: INFO
 # Missing required: num_workers
 """)
 
@@ -240,7 +243,8 @@ bot:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         with (
@@ -265,7 +269,8 @@ bot:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         # set environment override
@@ -331,7 +336,8 @@ other:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         with (
@@ -408,7 +414,8 @@ class TestExtendedStartupInfo:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         with (
@@ -435,7 +442,8 @@ bot:
         config_file.write_text("""
 bot:
   num_workers: 4
-  log_level: INFO
+  logging:
+    level: INFO
 """)
 
         with (
@@ -685,7 +693,8 @@ bot:
         config_file = tmp_path / "config.yaml"
         config_file.write_text("""
 bot:
-  log_level: INFO
+  logging:
+    level: INFO
   # Missing num_workers
 """)
 

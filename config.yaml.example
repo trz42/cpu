@@ -11,6 +11,28 @@ bot:
   # Number of worker threads for processing tasks
   num_workers: 4
 
+  # Logging Configuration
+  # ---------------------
+  logging:
+    # Log file location
+    file: logs/cpu.log
+
+    # Root log level
+    level: INFO
+
+    # Log format
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    # Rotation settings
+    max_bytes: 10485760  # 10MB
+    backup_count: 5
+    compress: true
+
+    # Hierarchical logger levels (optional)
+    loggers:
+      cpu.timer: DEBUG
+      cpu.job_manager: INFO
+
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_level: INFO
 
