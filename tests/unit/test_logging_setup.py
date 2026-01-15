@@ -41,7 +41,7 @@ class TestTraceLevel:
         logger.setLevel(TRACE)
 
         with caplog.at_level(TRACE):
-            logger.trace("test trace message")
+            logger.trace("test trace message")  # type: ignore[attr-defined]
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == TRACE
@@ -54,7 +54,7 @@ class TestTraceLevel:
         logger.setLevel(logging.DEBUG)
 
         with caplog.at_level(logging.DEBUG):
-            logger.trace("should not appear")
+            logger.trace("should not appear")  # type: ignore[attr-defined]
             logger.debug("should appear")
 
         assert len(caplog.records) == 1
@@ -67,7 +67,7 @@ class TestTraceLevel:
         logger.setLevel(TRACE)
 
         with caplog.at_level(TRACE):
-            logger.trace("trace message")
+            logger.trace("trace message")  # type: ignore[attr-defined]
             logger.debug("debug message")
 
         assert len(caplog.records) == 2

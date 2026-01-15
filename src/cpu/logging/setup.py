@@ -40,6 +40,16 @@ def _trace(self: logging.Logger, message: str, *args: Any, **kwargs: Any) -> Non
 logging.Logger.trace = _trace  # type: ignore[attr-defined]
 
 
+# type stubs for mypy to recognise the trace method
+if False:  # pragma: no cover
+    # this is never executed but tells mypy that Logger has a trace method
+    from typing import Protocol
+
+    class _LoggerProtocol(Protocol):
+        def trace(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+
+    logging.Logger.trace = _LoggerProtocol.trace
+
 def configure_logging(config: Config) -> None:
     """
     Configure Python logging before components start.
