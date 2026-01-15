@@ -11,9 +11,44 @@ from __future__ import annotations
 import logging
 import logging.handlers
 from pathlib import Path
+from typing import Any
 
 from cpu.config.config import Config
 
+# define TRACE level (below DEBUG)
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+
+
+def _trace(self: logging.Logger, message: str, *args: Any, **kwargs: Any) -> None:
+    """
+    Log a message at TRACE level.
+
+    This method is monkey-patched onto the Logger class to provide
+    TRACE level logging capability.
+
+    Args:
+        message: The log message
+        *args: Arguments for message formatting
+        **kwargs: Keyword arguments (e.g., exc_info, extra)
+    """
+    if self.isEnabledFor(TRACE):
+        self._log(TRACE, message, args, **kwargs)
+
+
+# monkey-patch the Logger class to add trace method
+logging.Logger.trace = _trace  # type: ignore[attr-defined]
+
+
+# type stubs for mypy to recognise the trace method
+if False:  # pragma: no cover
+    # this is never executed but tells mypy that Logger has a trace method
+    from typing import Protocol
+
+    class _LoggerProtocol(Protocol):
+        def trace(self, message: str, *args: Any, **kwargs: Any) -> None: ...
+
+    logging.Logger.trace = _LoggerProtocol.trace
 
 def configure_logging(config: Config) -> None:
     """
@@ -38,7 +73,11 @@ def configure_logging(config: Config) -> None:
 
     # configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, log_level.upper()))
+    # handle TRACE as a special case since it's not in standard logging
+    if log_level.upper() == "TRACE":
+        root_logger.setLevel(TRACE)
+    else:
+        root_logger.setLevel(getattr(logging, log_level.upper()))
 
     # create file handler with rotation
     file_handler = logging.handlers.RotatingFileHandler(
@@ -59,4 +98,8 @@ def configure_logging(config: Config) -> None:
     loggers_config = config.get("bot.logging.loggers", {})
     for logger_name, logger_level in loggers_config.items():
         logger = logging.getLogger(logger_name)
-        logger.setLevel(getattr(logging, logger_level.upper()))
+        # handle TRACE as a special case
+        if logger_level.upper() == "TRACE":
+            logger.setLevel(TRACE)
+        else:
+            logger.setLevel(getattr(logging, logger_level.upper()))

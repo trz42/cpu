@@ -12,11 +12,13 @@ import logging
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
+from cpu.logging import TRACE
+
 F = TypeVar('F', bound=Callable[..., Any])
 
 
 def trace_calls(
-    level: int = logging.DEBUG,
+    level: int = TRACE,
     include_args: bool = True,
     include_result: bool = True,
 ) -> Callable[[F], F]:
