@@ -145,6 +145,7 @@ class TestRunnableComponentClass:
         assert component.get_state() == ComponentState.STOPPED
         assert component.iterations < 100  # stopped early
 
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
     def test_runnable_component_exception_sets_failed_state(self) -> None:
         """Test that exceptions in process_iteration set FAILED state."""
         import threading
