@@ -15,7 +15,6 @@ from typing import Any
 
 from cpu.config.config import Config
 
-
 # define TRACE level (below DEBUG)
 TRACE = 5
 logging.addLevelName(TRACE, "TRACE")
