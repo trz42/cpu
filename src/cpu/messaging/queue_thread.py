@@ -8,10 +8,14 @@ Thread-safe message queue implementation using queue.Queue.
 
 from __future__ import annotations
 
+import logging
 import queue
 from typing import Generic, TypeVar
 
+from cpu.logging import TRACE  # this ensures trace() method is monkey-patched
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError, QueueFullError
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -45,6 +49,7 @@ class ThreadMessageQueue(MessageQueueInterface[T], Generic[T]):
         """
         self._queue: queue.Queue[T] = queue.Queue(maxsize=maxsize)
         self._closed = False
+        logger.info(f"Initialized ThreadMessageQueue(maxsize={maxsize})")
 
     def put(
         self,
@@ -69,9 +74,12 @@ class ThreadMessageQueue(MessageQueueInterface[T], Generic[T]):
             >>> queue.put(message, block=False)  # Raise immediately if full
             >>> queue.put(message, timeout=5.0)  # Wait max 5 seconds
         """
+        logger.trace(f"Putting message to queue (block={block}, timeout={timeout})")  # type: ignore[attr-defined]
         try:
             self._queue.put(message, block=block, timeout=timeout)
+            logger.trace(f"Successfully put message to queue (qsize={self.qsize()})")  # type: ignore[attr-defined]
         except queue.Full as err:
+            logger.debug(f"Queue full (maxsize={self._queue.maxsize})")
             raise QueueFullError("Queue is full") from err
 
     def get(
@@ -98,9 +106,13 @@ class ThreadMessageQueue(MessageQueueInterface[T], Generic[T]):
             >>> msg = queue.get(block=False)  # Raise immediately if empty
             >>> msg = queue.get(timeout=5.0)  # Wait max 5 seconds
         """
+        logger.trace(f"Getting message from queue (block={block}, timeout={timeout})")  # type: ignore[attr-defined]
         try:
-            return self._queue.get(block=block, timeout=timeout)
+            message = self._queue.get(block=block, timeout=timeout)
+            logger.trace(f"Successfully got message from queue (qsize={self.qsize()})")  # type: ignore[attr-defined]
+            return message
         except queue.Empty as err:
+            logger.debug("Queue empty")
             raise QueueEmptyError("Queue is empty") from err
 
     def empty(self) -> bool:
@@ -154,6 +166,7 @@ class ThreadMessageQueue(MessageQueueInterface[T], Generic[T]):
             is provided for interface compatibility and future extensibility.
         """
         self._closed = True
+        logger.info("Closed ThreadMessageQueue")
         # queue.Queue doesn't need explicit closing, but we mark it as closed
         # for potential future use (e.g., raising errors on operations after close)
 
