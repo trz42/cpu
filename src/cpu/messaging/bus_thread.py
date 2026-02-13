@@ -9,11 +9,15 @@ Thread-based message bus implementation.
 from __future__ import annotations
 
 import contextlib
+import logging
 import threading
 from typing import Generic, TypeVar
 
+from cpu.logging import TRACE  # ensures trace() method is monkey-patched
 from cpu.messaging.interfaces import MessageBusInterface, MessageQueueInterface, QueueError
 from cpu.messaging.queue_thread import ThreadMessageQueue
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -46,6 +50,7 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
         self._queues: dict[str, MessageQueueInterface[T]] = {}
         self._topics: dict[str, list[MessageQueueInterface[T]]] = {}
         self._lock = threading.RLock()  # Reentrant lock for nested operations
+        logger.info("Initialized ThreadMessageBus")
 
     def get_queue(self, name: str) -> MessageQueueInterface[T]:
         """
@@ -69,6 +74,10 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
         with self._lock:
             if name not in self._queues:
                 self._queues[name] = ThreadMessageQueue[T]()
+                logger.debug(f"Created queue: {name}")
+            else:
+                logger.debug(f"Retrieved existing queue: {name}")
+
             return self._queues[name]
 
     def publish(self, topic: str, message: T) -> None:
@@ -95,8 +104,10 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
         # Create snapshot of subscribers under lock to avoid race conditions
         with self._lock:
             if topic not in self._topics:
+                logger.debug(f"Publishing message to topic '{topic}' (0 subscribers)")
                 return  # No subscribers, drop message
             subscribers = list(self._topics[topic])  # Create copy
+            logger.debug(f"Publishing message to topic '{topic}' ({len(subscribers)} subscribers)")
 
         # Publish to subscribers outside lock to avoid deadlock
         # and improve concurrency (put() operations are independent)
@@ -132,6 +143,7 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
                 self._topics[topic] = []
 
             self._topics[topic].append(subscriber_queue)
+            logger.info(f"Subscribed to topic: {topic}")
 
             return subscriber_queue
 
@@ -149,6 +161,7 @@ class ThreadMessageBus(MessageBusInterface[T], Generic[T]):
             >>> # All queues are now closed
         """
         with self._lock:
+            logger.info(f"Shutting down ThreadMessageBus ({len(self._queues)} queues)")
             # Close all named queues
             for queue in self._queues.values():
                 queue.close()

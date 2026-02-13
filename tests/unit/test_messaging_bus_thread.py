@@ -14,6 +14,9 @@ Tests the message bus implementation including:
 
 from __future__ import annotations
 
+import logging
+import pytest
+
 from cpu.messaging.bus_thread import ThreadMessageBus
 from cpu.messaging.message import Message, MessageType
 
@@ -202,3 +205,101 @@ class TestThreadMessageBus:
 
         # Should complete without errors
         assert len(errors) == 0, f"Concurrent operations raised errors: {errors}"
+
+
+class TestThreadMessageBusLogging:
+    """Test logging functionality in ThreadMessageBus."""
+
+    def test_bus_creation_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test bus creation logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+
+        assert "Initialized ThreadMessageBus" in caplog.text
+
+    def test_get_queue_creation_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue creation via get_queue logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        queue = bus.get_queue("test_queue")
+
+        assert "Created queue" in caplog.text
+        assert "test_queue" in caplog.text
+
+    def test_get_queue_retrieval_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test retrieving existing queue logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        queue1 = bus.get_queue("test_queue")
+
+        caplog.clear()
+        queue2 = bus.get_queue("test_queue")
+
+        assert "Retrieved existing queue" in caplog.text
+        assert "test_queue" in caplog.text
+
+    def test_subscribe_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test subscription logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        sub = bus.subscribe("test_topic")
+
+        assert "Subscribed to topic" in caplog.text
+        assert "test_topic" in caplog.text
+
+    def test_publish_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test publish logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        sub1 = bus.subscribe("test_topic")
+        sub2 = bus.subscribe("test_topic")
+
+        caplog.clear()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        bus.publish("test_topic", msg)
+
+        assert "Publishing message to topic" in caplog.text
+        assert "test_topic" in caplog.text
+        assert "2 subscribers" in caplog.text
+
+    def test_publish_no_subscribers_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test publishing to topic with no subscribers logs at DEBUG."""
+        caplog.set_level(logging.DEBUG)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        bus.publish("empty_topic", msg)
+
+        assert "Publishing message to topic" in caplog.text
+        assert "0 subscribers" in caplog.text
+
+    def test_shutdown_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test shutdown logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        bus.get_queue("queue1")
+        bus.get_queue("queue2")
+
+        caplog.clear()
+        bus.shutdown()
+
+        assert "Shutting down ThreadMessageBus" in caplog.text
+        assert "2 queues" in caplog.text
+
+    def test_shutdown_empty_bus_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test shutdown of empty bus logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+
+        caplog.clear()
+        bus.shutdown()
+
+        assert "Shutting down ThreadMessageBus" in caplog.text
+        assert "0 queues" in caplog.text
