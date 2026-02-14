@@ -15,6 +15,7 @@ Tests the message bus implementation including:
 from __future__ import annotations
 
 import logging
+
 import pytest
 
 from cpu.messaging.bus_thread import ThreadMessageBus
@@ -214,7 +215,7 @@ class TestThreadMessageBusLogging:
         """Test bus creation logs at INFO level."""
         caplog.set_level(logging.INFO)
 
-        bus: ThreadMessageBus[Message] = ThreadMessageBus()
+        _: ThreadMessageBus[Message] = ThreadMessageBus()
 
         assert "Initialized ThreadMessageBus" in caplog.text
 
@@ -223,7 +224,7 @@ class TestThreadMessageBusLogging:
         caplog.set_level(logging.DEBUG)
 
         bus: ThreadMessageBus[Message] = ThreadMessageBus()
-        queue = bus.get_queue("test_queue")
+        bus.get_queue("test_queue")
 
         assert "Created queue" in caplog.text
         assert "test_queue" in caplog.text
@@ -233,10 +234,10 @@ class TestThreadMessageBusLogging:
         caplog.set_level(logging.DEBUG)
 
         bus: ThreadMessageBus[Message] = ThreadMessageBus()
-        queue1 = bus.get_queue("test_queue")
+        bus.get_queue("test_queue")
 
         caplog.clear()
-        queue2 = bus.get_queue("test_queue")
+        bus.get_queue("test_queue")
 
         assert "Retrieved existing queue" in caplog.text
         assert "test_queue" in caplog.text
@@ -246,7 +247,7 @@ class TestThreadMessageBusLogging:
         caplog.set_level(logging.INFO)
 
         bus: ThreadMessageBus[Message] = ThreadMessageBus()
-        sub = bus.subscribe("test_topic")
+        bus.subscribe("test_topic")
 
         assert "Subscribed to topic" in caplog.text
         assert "test_topic" in caplog.text
@@ -256,8 +257,8 @@ class TestThreadMessageBusLogging:
         caplog.set_level(logging.DEBUG)
 
         bus: ThreadMessageBus[Message] = ThreadMessageBus()
-        sub1 = bus.subscribe("test_topic")
-        sub2 = bus.subscribe("test_topic")
+        bus.subscribe("test_topic")
+        bus.subscribe("test_topic")
 
         caplog.clear()
         msg = Message(type=MessageType.WEBHOOK, payload={})
