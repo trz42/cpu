@@ -344,7 +344,7 @@ class TestThreadMessageQueueLogging:
         """Test queue creation logs at INFO level."""
         caplog.set_level(logging.INFO)
 
-        queue: ThreadMessageQueue[Message] = ThreadMessageQueue(maxsize=10)
+        ThreadMessageQueue(maxsize=10)
 
         assert "Initialized ThreadMessageQueue" in caplog.text
         assert "maxsize=10" in caplog.text
@@ -353,7 +353,7 @@ class TestThreadMessageQueueLogging:
         """Test queue with unlimited size logs maxsize=0."""
         caplog.set_level(logging.INFO)
 
-        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        ThreadMessageQueue()
 
         assert "Initialized ThreadMessageQueue" in caplog.text
         assert "maxsize=0" in caplog.text
@@ -394,7 +394,7 @@ class TestThreadMessageQueueLogging:
         queue.put(msg)
 
         caplog.clear()  # clear put logs
-        retrieved = queue.get()
+        queue.get()
 
         assert "Getting message from queue" in caplog.text
         assert "Successfully got message from queue" in caplog.text
