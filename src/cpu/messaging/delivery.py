@@ -13,12 +13,10 @@ This module provides three delivery guarantee levels:
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import time
 from typing import Generic, TypeVar
 
-from cpu.logging import TRACE  # ensures trace() method is monkey-patched
 from cpu.messaging.interfaces import (
     MessageDeliveryInterface,
     MessageQueueInterface,

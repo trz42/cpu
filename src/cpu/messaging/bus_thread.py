@@ -13,7 +13,6 @@ import logging
 import threading
 from typing import Generic, TypeVar
 
-from cpu.logging import TRACE  # ensures trace() method is monkey-patched
 from cpu.messaging.interfaces import MessageBusInterface, MessageQueueInterface, QueueError
 from cpu.messaging.queue_thread import ThreadMessageQueue
 

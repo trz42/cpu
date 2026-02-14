@@ -12,7 +12,6 @@ import logging
 import queue
 from typing import Generic, TypeVar
 
-from cpu.logging import TRACE  # this ensures trace() method is monkey-patched
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError, QueueFullError
 
 logger = logging.getLogger(__name__)
