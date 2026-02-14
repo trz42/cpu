@@ -13,8 +13,11 @@ Tests the three delivery guarantee levels:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import Mock
+
+import pytest
 
 from cpu.messaging.delivery import (
     AtLeastOnceDelivery,
@@ -424,3 +427,192 @@ class TestExactlyOnceDelivery:
         result2 = delivery.send(queue, msg)
         assert result2 is True
         assert msg.id in delivery._sent_ids
+
+
+class TestAtMostOnceDeliveryLogging:
+    """Test logging in AtMostOnceDelivery."""
+
+    def test_send_success_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test successful send logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: AtMostOnceDelivery[Message] = AtMostOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Sending message (at-most-once)" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_send_failure_logs_at_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test send failure logs at WARNING level."""
+        caplog.set_level(logging.WARNING)
+
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = QueueFullError("Full")
+        delivery: AtMostOnceDelivery[Message] = AtMostOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Failed to send message (at-most-once)" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+
+class TestAtLeastOnceDeliveryLogging:
+    """Test logging in AtLeastOnceDelivery."""
+
+    def test_send_success_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test successful send logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Sending message (at-least-once)" in caplog.text
+        assert msg.id[:8] in caplog.text
+        assert "Successfully sent message" in caplog.text
+
+    def test_retry_logs_at_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test retry attempt logs at WARNING level."""
+        caplog.set_level(logging.WARNING)
+
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = [QueueFullError("Full"), None]  # Fail then succeed
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery(max_retries=3, retry_delay=0.01)
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Retry attempt 1" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_all_retries_failed_logs_at_error(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test exhausted retries logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = QueueFullError("Full")
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery(max_retries=2, retry_delay=0.01)
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        result = delivery.send(queue, msg)
+
+        assert result is False
+        assert "Failed to send message after 2 retries" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_acknowledge_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test acknowledge logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+        caplog.clear()
+        delivery.acknowledge(msg)
+
+        assert "Acknowledged message" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+
+class TestExactlyOnceDeliveryLogging:
+    """Test logging in ExactlyOnceDelivery."""
+
+    def test_send_success_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test successful send logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Sending message (exactly-once)" in caplog.text
+        assert msg.id[:8] in caplog.text
+        assert "Successfully sent message" in caplog.text
+
+    def test_duplicate_send_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test duplicate send attempt logs at DEBUG devel."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+        caplog.clear()
+        delivery.send(queue, msg)
+
+        assert "Duplicate message detected, skipping send" in caplog.text
+        assert msg.id[:8]
+
+    def test_retry_logs_at_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test retry attempt logs at WARNING level."""
+        caplog.set_level(logging.WARNING)
+
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = [QueueFullError("Full"), None]
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery(max_retries=3, retry_delay=0.01)
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        delivery.send(queue, msg)
+
+        assert "Retry attempt 1" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_receive_duplicate_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test receiving duplicate message logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        # first receive and acknowledge to mark as processed
+        queue.get.return_value = msg
+        delivery.receive(queue)
+        delivery.acknowledge(msg)
+
+        # second receive (duplicate)
+        caplog.clear()
+        result = delivery.receive(queue)
+
+        assert result is None
+        assert "Duplicate message detected on receive, filtering out" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_acknowledge_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test acknowledge logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        delivery._processed_ids.add(msg.id)
+
+        delivery.acknowledge(msg)
+
+        assert "Acknowledged message" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_cleanup_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test cleanup logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery(max_processed_ids=3)
+
+        # add 4 messages to trigger cleanup (cleanup happens when more messages than capacity were sent)
+        for nr in range(4):
+            msg = Message(type=MessageType.WEBHOOK, payload={"n": nr})
+            delivery._processed_ids.add(msg.id)
+            delivery.acknowledge(msg)
+
+        assert "Cleaned up" in caplog.text
+        assert "processed IDs" in caplog.text

@@ -13,7 +13,7 @@ This module provides three delivery guarantee levels:
 
 from __future__ import annotations
 
-import contextlib
+import logging
 import time
 from typing import Generic, TypeVar
 
@@ -24,6 +24,8 @@ from cpu.messaging.interfaces import (
     QueueError,
     QueueFullError,
 )
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -67,9 +69,20 @@ class AtMostOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         Returns:
             Always True (we don't care about failures)
         """
-        # At-most-once: don't care if it fails
-        with contextlib.suppress(QueueError):
+        msg_id = message.id[:8] + "..." if hasattr(message, "id") else "unknown"
+        logger.debug(f"Sending message (at-most-once): {msg_id}")
+
+        # at-most-once: don't care if it fails
+        try:
             queue.put(message, timeout=timeout)
+        except QueueError as err:
+            logger.warning(
+                f"Failed to send message (at-most-once): {msg_id}, "
+                f"error={type(err).__name__}"
+            )
+            # suppress the error (at-most-once doesn't care)
+        else:
+            logger.debug(f"Successfully sent message (at-most-once): {msg_id}")
 
         return True
 
@@ -163,6 +176,9 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         Returns:
             True if delivered, False if all retries exhausted
         """
+        msg_id = message.id[:8] + "..." if hasattr(message, "id") else "unknown"
+        logger.debug(f"Sending message (at-least-once): {msg_id}")
+
         start_time = time.time()
         attempts = 0
 
@@ -175,11 +191,18 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
 
             try:
                 queue.put(message, timeout=None)
+                logger.debug(f"Successfully sent message (at-least-once): {msg_id}")
                 return True
             except QueueFullError:
                 attempts += 1
                 if attempts > self.max_retries:
+                    logger.error(
+                        f"Failed to send message after {self.max_retries} retries "
+                        f"(at-least-once): {msg_id}"
+                    )
                     return False
+
+                logger.warning(f"Retry attempt {attempts} for message (at-least-once): {msg_id}")
 
                 # Wait before retry (but don't exceed total timeout)
                 if timeout is not None:
@@ -229,6 +252,9 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         Args:
             message: Message to acknowledge
         """
+        msg_id = message.id[:8] + "..." if hasattr(message, "id") else "unknown"
+        logger.debug(f"Acknowledged message (at-least-once): {msg_id}")
+
         # Remove from pending if it exists (discard = no error if missing)
         if hasattr(message, "id"):
             self._pending.discard(str(message.id))
@@ -301,11 +327,15 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         Returns:
             True if delivered, False if all retries exhausted
         """
-        # # Track that we've sent this message
-        # if hasattr(message, "id"):
-        #     self._sent_ids.add(str(message.id))
+        msg_id = message.id[:8] + "..." if hasattr(message, "id") else "unknown"
 
-        # Use same retry logic as at-least-once
+        # check for duplicate send
+        if hasattr(message, "id") and str(message.id) in self._sent_ids:
+            logger.debug(f"Duplicate message detected, skipping send (exactly-once): {msg_id}")
+            return True
+
+        logger.debug(f"Sending message (exactly-once): {msg_id}")
+
         start_time = time.time()
         attempts = 0
 
@@ -320,11 +350,18 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
                 # Only track as sent if delivery succeeded
                 if hasattr(message, "id"):
                     self._sent_ids.add(str(message.id))
+                logger.debug(f"Successfully sent message (exactly-once): {msg_id}")
                 return True
             except QueueFullError:
                 attempts += 1
                 if attempts > self.max_retries:
+                    logger.error(
+                        f"Failed to send message after {self.max_retries} retries "
+                        f"(exactly-once): {msg_id}"
+                    )
                     return False
+
+                logger.warning(f"Retry attempt {attempts} for message (exactly-once): {msg_id}")
 
                 if timeout is not None:
                     elapsed = time.time() - start_time
@@ -365,6 +402,10 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
 
             # Filter out already-processed messages
             if msg_id in self._processed_ids:
+                logger.debug(
+                    f"Duplicate message detected on receive, filtering out "
+                    f"(exactly-once): {msg_id}"
+                )
                 return None  # Duplicate, drop it
 
             # Track as pending
@@ -385,6 +426,9 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         Args:
             message: Message to acknowledge
         """
+        msg_id = message.id[:8] + "..." if hasattr(message, "id") else "unknown"
+        logger.debug(f"Acknowledged message (exactly-once): {msg_id}")
+
         if not hasattr(message, "id"):
             return
 
@@ -396,6 +440,10 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
 
         # Cleanup old processed IDs to prevent memory leak
         if len(self._processed_ids) > self.max_processed_ids:
+            logger.debug(
+                f"Cleaned up {len(self._processed_ids) - int(self.max_processed_ids * 0.8)}"
+                f"processed IDs (exactly-once)"
+            )
             # Keep most recent (arbitrary choice: keep last 80%)
             keep_count = int(self.max_processed_ids * 0.8)
             # Convert to list, keep last N, convert back to set

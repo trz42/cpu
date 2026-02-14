@@ -9,6 +9,7 @@ a thread-based implementation for MessageQueueInterface.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 
@@ -335,3 +336,101 @@ class TestThreadMessageQueueEdgeCases:
             queue.put(msg, block=False)  # Should not block
 
         assert queue.qsize() == 100
+
+class TestThreadMessageQueueLogging:
+    """Test logging functionality in ThreadMessageQueue."""
+
+    def test_queue_creation_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue creation logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        ThreadMessageQueue(maxsize=10)
+
+        assert "Initialized ThreadMessageQueue" in caplog.text
+        assert "maxsize=10" in caplog.text
+
+    def test_queue_creation_unlimited_logs_maxsize_zero(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue with unlimited size logs maxsize=0."""
+        caplog.set_level(logging.INFO)
+
+        ThreadMessageQueue()
+
+        assert "Initialized ThreadMessageQueue" in caplog.text
+        assert "maxsize=0" in caplog.text
+
+    def test_put_operation_logs_at_trace(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test put operation logs at TRACE level."""
+        from cpu.logging import TRACE
+        caplog.set_level(TRACE)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        queue.put(msg)
+
+        assert "Putting message to queue" in caplog.text
+        assert "Successfully put message to queue" in caplog.text
+
+    def test_put_operation_not_logged_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test put operation not logged when level is DEBUG."""
+        caplog.set_level(logging.DEBUG)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        queue.put(msg)
+
+        # TRACE logs should not appear at DEBUG level
+        assert "Putting message to queue" not in caplog.text
+
+    def test_get_operation_logs_at_trace(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test get operation logs at TRACE level."""
+        from cpu.logging import TRACE
+        caplog.set_level(TRACE)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        queue.put(msg)
+
+        caplog.clear()  # clear put logs
+        queue.get()
+
+        assert "Getting message from queue" in caplog.text
+        assert "Successfully got message from queue" in caplog.text
+
+    def test_queue_full_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue full condition logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue(maxsize=1)
+        msg1 = Message(type=MessageType.WEBHOOK, payload={})
+        msg2 = Message(type=MessageType.WEBHOOK, payload={})
+
+        queue.put(msg1)
+
+        with pytest.raises(QueueFullError):
+            queue.put(msg2, block=False)
+
+        assert "Queue full" in caplog.text
+        assert "maxsize=1" in caplog.text
+
+    def test_queue_empty_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue empty condition logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        with pytest.raises(QueueEmptyError):
+            queue.get(block=False)
+
+        assert "Queue empty" in caplog.text
+
+    def test_queue_close_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test queue close logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        queue.close()
+
+        assert "Closed ThreadMessageQueue" in caplog.text

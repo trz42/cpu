@@ -11,6 +11,7 @@ Tests the Message class and related factory functions.
 # enable postponed evaluations of annotations
 from __future__ import annotations
 
+import logging
 import time
 
 import pytest
@@ -475,3 +476,101 @@ class TestMessageEdgeCases:
         assert msg2.retries == 0  # Should not be affected
         assert msg1.id != msg2.id
         assert msg1.payload != msg2.payload
+
+
+class TestMessageLogging:
+    """Tests for message logging functionality."""
+
+    def test_message_creation_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test message creation logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        msg = Message(type=MessageType.WEBHOOK, payload={"data": "test"})
+
+        assert "Created message" in caplog.text
+        assert "type=webhook" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_message_creation_not_logged_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test message creation not logged when level is INFO."""
+        caplog.set_level(logging.INFO)
+
+        Message(type=MessageType.WEBHOOK, payload={"data": "test"})
+
+        assert "Created message" not in caplog.text
+
+    def test_message_expiration_logs_when_expired(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test expired message logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        msg.timestamp = time.time() - 7200  # 2 hours ago
+
+        is_expired = msg.is_expired(ttl_seconds=3600)
+
+        assert is_expired is True
+        assert "expired" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_message_not_expired_no_log(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test fresh message doesn't log expiration."""
+        caplog.set_level(logging.DEBUG)
+
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+        is_expired = msg.is_expired(ttl_seconds=3600)
+
+        assert is_expired is False
+        assert "expired" not in caplog.text
+
+    def test_to_dict_logs_serialization(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test to_dict logs serialization at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        msg = Message(type=MessageType.NEW_JOB, payload={"job_id": "123"})
+        msg.to_dict()
+
+        assert "Serializing message" in caplog.text
+        assert msg.id[:8] in caplog.text
+
+    def test_from_dict_logs_deserialization(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test from_dict logs deserialization at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        data = {
+            "id": "test-id-12345",
+            "type": "webhook",
+            "payload": {},
+            "delivery": "at-least-once",
+            "timestamp": 1234567890.0
+        }
+
+        Message.from_dict(data)
+
+        assert "Deserializing message" in caplog.text
+        assert "test-id-" in caplog.text
+
+    def test_factory_webhook_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test webhook factory logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        create_webhook_message({"test": 1}, platform="github")
+
+        assert "Creating webhook message" in caplog.text
+        assert "github" in caplog.text
+
+    def test_factory_job_notification_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test job notification factory logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        create_job_notification("slurm_123", pr_number=456, repository="test/repo")
+
+        assert "Creating job notification" in caplog.text
+        assert "slurm_123" in caplog.text
+
+    def test_factory_status_check_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test status check factory logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        create_status_check_message()
+
+        assert "Creating status check message" in caplog.text

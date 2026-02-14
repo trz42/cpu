@@ -8,11 +8,14 @@ All components communicate by passing Message objects through queues.
 """
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class DeliveryGuarantee(Enum):
@@ -79,6 +82,7 @@ class Message:
             raise TypeError(
                 f"Message type must be MessageType enum, got {type(self.type)}"
             )
+        logger.debug(f"Created message: type={self.type.value}, id={self.id[:8]}...")
 
     def increment_retries(self) -> None:
         """Increment the retry counter."""
@@ -95,7 +99,10 @@ class Message:
             True if message is expired, False otherwise
         """
         age = time.time() - self.timestamp
-        return age > ttl_seconds
+        is_expired = age > ttl_seconds
+        if is_expired:
+            logger.debug(f"Message {self.id[:8]}... expired (age={age:.1f}s, ttl={ttl_seconds}s)")
+        return is_expired
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -104,6 +111,7 @@ class Message:
         Returns:
             Dictionary representation of message
         """
+        logger.debug(f"Serializing message {self.id[:8]}... to dict")
         return {
             "id": self.id,
             "type": self.type.value,
@@ -126,6 +134,7 @@ class Message:
         Returns:
             Message instance
         """
+        logger.debug(f"Deserializing message from dict: id={data.get('id', 'unknown')[:8]}...")
         return cls(
             id=data["id"],
             type=MessageType(data["type"]),
@@ -157,6 +166,7 @@ def create_webhook_message(
     Returns:
         Message containing webhook data
     """
+    logger.info(f"Creating webhook message from platform: {platform}")
     return Message(
         type=MessageType.WEBHOOK,
         payload={"platform": platform, "data": webhook_data},
@@ -178,6 +188,7 @@ def create_job_notification(
     Returns:
         Message notifying about new job
     """
+    logger.info(f"Creating job notification: job_id={job_id}, pr={pr_number}, repo={repository}")
     return Message(
         type=MessageType.NEW_JOB,
         payload={"job_id": job_id, "pr_number": pr_number, "repository": repository},
@@ -192,4 +203,5 @@ def create_status_check_message() -> Message:
     Returns:
         Message triggering job status check
     """
+    logger.debug("Creating status check message")
     return Message(type=MessageType.CHECK_STATUS, payload={}, source="Scheduler")
