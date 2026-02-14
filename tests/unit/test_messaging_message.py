@@ -11,8 +11,8 @@ Tests the Message class and related factory functions.
 # enable postponed evaluations of annotations
 from __future__ import annotations
 
-import time
 import logging
+import time
 
 import pytest
 
@@ -495,7 +495,7 @@ class TestMessageLogging:
         """Test message creation not logged when level is INFO."""
         caplog.set_level(logging.INFO)
 
-        msg = Message(type=MessageType.WEBHOOK, payload={"data": "test"})
+        Message(type=MessageType.WEBHOOK, payload={"data": "test"})
 
         assert "Created message" not in caplog.text
 
@@ -527,7 +527,7 @@ class TestMessageLogging:
         caplog.set_level(logging.DEBUG)
 
         msg = Message(type=MessageType.NEW_JOB, payload={"job_id": "123"})
-        data = msg.to_dict()
+        msg.to_dict()
 
         assert "Serializing message" in caplog.text
         assert msg.id[:8] in caplog.text
@@ -544,7 +544,7 @@ class TestMessageLogging:
             "timestamp": 1234567890.0
         }
 
-        msg = Message.from_dict(data)
+        Message.from_dict(data)
 
         assert "Deserializing message" in caplog.text
         assert "test-id-" in caplog.text
@@ -553,7 +553,7 @@ class TestMessageLogging:
         """Test webhook factory logs at INFO level."""
         caplog.set_level(logging.INFO)
 
-        msg = create_webhook_message({"test": 1}, platform="github")
+        create_webhook_message({"test": 1}, platform="github")
 
         assert "Creating webhook message" in caplog.text
         assert "github" in caplog.text
@@ -562,7 +562,7 @@ class TestMessageLogging:
         """Test job notification factory logs at INFO level."""
         caplog.set_level(logging.INFO)
 
-        msg = create_job_notification("slurm_123", pr_number=456, repository="test/repo")
+        create_job_notification("slurm_123", pr_number=456, repository="test/repo")
 
         assert "Creating job notification" in caplog.text
         assert "slurm_123" in caplog.text
@@ -571,6 +571,6 @@ class TestMessageLogging:
         """Test status check factory logs at DEBUG level."""
         caplog.set_level(logging.DEBUG)
 
-        msg = create_status_check_message()
+        create_status_check_message()
 
         assert "Creating status check message" in caplog.text
