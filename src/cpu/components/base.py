@@ -22,9 +22,12 @@ All components follow a strict lifecycle:
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ComponentState(Enum):
@@ -70,6 +73,7 @@ class ComponentInterface(ABC):
         self.name = name
         self.config = config or {}
         self.state = ComponentState.CREATED
+        logger.info(f"Created component: {name}")
 
     @abstractmethod
     def initialize(self) -> None:
@@ -155,6 +159,8 @@ class RunnableComponent(ComponentInterface):
         self.state = ComponentState.RUNNING
         self._stop_requested = False
 
+        logger.info(f"Starting component: {self.name}")
+
         try:
             while not self._stop_requested:
                 self.process_iteration()
@@ -176,6 +182,7 @@ class RunnableComponent(ComponentInterface):
 
     def stop(self, timeout: float | None = None) -> None:
         """Request component to stop."""
+        logger.info(f"Stopping component: {self.name}")
         del timeout  # not used in base implementation
         self._stop_requested = True
         self.state = ComponentState.STOPPING
