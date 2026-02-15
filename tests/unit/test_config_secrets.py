@@ -29,7 +29,7 @@ from cpu.config.secrets import (
 )
 from cpu.config.secrets_audit import SecretsAuditLogger
 from cpu.config.secrets_context import SecretContext
-from cpu.config.secrets_encryption import NoEncryption, EncryptionProvider
+from cpu.config.secrets_encryption import EncryptionProvider, NoEncryption
 from cpu.config.secrets_sources import EnvVarSecretSource, FileSecretSource, SecretSource, SecretValue
 
 
@@ -865,8 +865,6 @@ secrets:
 
     def test_custom_encryption_provider(self, tmp_path: Path) -> None:
         """Test passing custom encryption provider."""
-        from unittest.mock import Mock
-
         audit_log = tmp_path / "audit.log"
         audit = SecretsAuditLogger(audit_file=audit_log)
 
@@ -881,12 +879,18 @@ secrets:
 
     def test_custom_sources(self, tmp_path: Path) -> None:
         """Test passing custom sources."""
-        from unittest.mock import Mock
-
         audit_log = tmp_path / "audit.log"
         audit = SecretsAuditLogger(audit_file=audit_log)
 
         custom_source = Mock(spec=SecretSource)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        manager = SecretManager(config, sources=[custom_source], audit_logger=audit)
+
+        assert len(manager.sources) == 1
+        assert manager.sources[0] is custom_source
 
 
 class TestSecretsLogging:
