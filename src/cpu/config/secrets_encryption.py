@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import getpass
+import logging
 import os
 import secrets
 from typing import Protocol
@@ -24,6 +25,8 @@ from typing import Protocol
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+logger = logging.getLogger(__name__)
 
 
 class DecryptionError(Exception):
@@ -42,6 +45,10 @@ class EncryptionProvider(Protocol):
 
 class NoEncryption:
     """No-op encryption provider (secrets stored in plaintext)."""
+
+    def __init__(self) -> None:
+        """Initialize no-op encryption."""
+        logger.info("Initialized NoEncryption (plaintext mode)")
 
     def decrypt(self, encrypted_data: bytes) -> bytes:
         """Return data as-is."""
@@ -70,6 +77,7 @@ class MasterPassphraseEncryption:
         """
         self._passphrase = passphrase or self._prompt_passphrase()
         self._fernet_cache: dict[bytes, Fernet] = {}  # Cache Fernet per salt
+        logger.info("Initialized MasterPassphraseEncryption")
 
     def _prompt_passphrase(self) -> str:
         """Prompt for master passphrase interactively."""
@@ -85,6 +93,8 @@ class MasterPassphraseEncryption:
         Returns:
             salt (16 bytes) + fernet_ciphertext
         """
+        logger.debug(f"Encrypting data (size={len(plaintext)} bytes)")
+
         # Generate random salt
         salt = secrets.token_bytes(16)
 
@@ -94,6 +104,8 @@ class MasterPassphraseEncryption:
 
         # Encrypt
         ciphertext = fernet.encrypt(plaintext)
+
+        logger.debug(f"Encrypting complete (output size={len(salt) + len(ciphertext)} bytes)")
 
         return salt + ciphertext
 
@@ -112,7 +124,10 @@ class MasterPassphraseEncryption:
         Raises:
             DecryptionError: If decryption fails (wrong passphrase, corrupt data)
         """
+        logger.debug(f"Decrypting data (size={len(encrypted_data)} bytes)")
+
         if len(encrypted_data) < 16:
+            logger.error("Invalid encrypted data (too short)")
             raise DecryptionError("Invalid encrypted data (too short)")
 
         # Extract salt and ciphertext
@@ -127,10 +142,14 @@ class MasterPassphraseEncryption:
         fernet = self._fernet_cache[salt]
 
         try:
-            return fernet.decrypt(ciphertext)
+            plaintext = fernet.decrypt(ciphertext)
+            logger.debug(f"Decryption complete (output size={len(plaintext)} bytes)")
+            return plaintext
         except InvalidToken as err:
+            logger.error("Decryption failed: invalid token or wrong passphrase")
             raise DecryptionError(f"Decryption failed: {err}") from err
         except Exception as err:
+            logger.error(f"Decryption failed: {type(err).__name__}")
             raise DecryptionError(f"Decryption failed: {err}") from err
 
     def _derive_key(self, salt: bytes) -> bytes:
@@ -178,10 +197,14 @@ class EncryptionConfig:
         Returns:
             NoEncryption if disabled, MasterPassphraseEncryption if enabled
         """
+        logger.info(f"Creating encryption provider (enabled={self.enabled})")
+
         if not self.enabled:
             return NoEncryption()
 
         # Try to get passphrase from env var first
         passphrase = os.environ.get(self.passphrase_env_var)
+
+        logger.debug(f"Passphrase source: {'environment' if passphrase else 'interactive'}")
 
         return MasterPassphraseEncryption(passphrase=passphrase)

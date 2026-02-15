@@ -10,6 +10,8 @@ Tests encryption providers for optional secret encryption at rest.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from cpu.config.secrets_encryption import (
@@ -218,3 +220,74 @@ class TestEncryptionConfig:
         provider = config.create_provider()
 
         assert isinstance(provider, MasterPassphraseEncryption)
+
+
+class TestSecretsEncryptionLogging:
+    """Test logging functionality in secrets encryption."""
+
+    def test_encryption_init_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test encryption initialization logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        MasterPassphraseEncryption(passphrase="test_passphrase")
+
+        assert "Initialized MasterPassphraseEncryption" in caplog.text
+
+    def test_no_encryption_init_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test NoEncryption initialization logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        NoEncryption()
+
+        assert "Initialized NoEncryption" in caplog.text
+
+    def test_encrypt_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test encryption operation logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        encryption = MasterPassphraseEncryption(passphrase="test_passphrase")
+
+        caplog.clear()
+        encrypted = encryption.encrypt(b"test data")
+
+        assert "Encrypting data" in caplog.text
+        assert "size=" in caplog.text or "bytes" in caplog.text  # should log size
+        assert "test data" not in caplog.text  # should not log actual data
+        # verify that encrypted data is not logged either
+        assert encrypted.hex() not in caplog.text
+
+    def test_decrypt_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test decryption operation logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        encryption = MasterPassphraseEncryption(passphrase="test_passphrase")
+        encrypted = encryption.encrypt(b"test data")
+
+        caplog.clear()
+        decrypted = encryption.decrypt(encrypted)
+
+        assert "Decrypting data" in caplog.text
+        assert "size=" in caplog.text or "bytes" in caplog.text  # should log size
+        assert "test data" not in caplog.text  # should not log actual data
+        assert decrypted.hex() not in caplog.text  # should not log decrypted bytes
+
+    def test_decryption_failure_logs_at_error(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test decryption failure logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        encryption = MasterPassphraseEncryption(passphrase="test_passphrase")
+
+        with pytest.raises(DecryptionError):
+            encryption.decrypt(b"invalid_encrypted_data")
+
+        assert "Decryption failed" in caplog.text
+
+    def test_encryption_config_create_provider_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test EncryptionConfig.create_provider logs provider creation."""
+        caplog.set_level(logging.INFO)
+
+        config = EncryptionConfig(enabled=False)
+        provider = config.create_provider()
+
+        assert isinstance(provider, NoEncryption)
+        assert "Creating encryption provider" in caplog.text or "NoEncryption" in caplog.text
