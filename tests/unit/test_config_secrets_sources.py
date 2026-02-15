@@ -14,12 +14,14 @@ Tests different backends for loading secrets:
 from __future__ import annotations
 
 import base64
+import logging
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from cpu.config.secrets_audit import SecretsAuditLogger
-from cpu.config.secrets_encryption import NoEncryption
+from cpu.config.secrets_encryption import DecryptionError, MasterPassphraseEncryption, NoEncryption
 from cpu.config.secrets_sources import (
     EnvVarSecretSource,
     FileSecretSource,
@@ -332,3 +334,109 @@ class TestFileSecretSource:
         content = audit_file.read_text()
         assert "test" in content
         assert "file:plain" in content
+
+
+class TestSecretsSourcesLogging:
+    """Test logging functionality in secret sources."""
+
+    def test_env_var_source_get_plain_logs_at_info(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test EnvVarSecretSource logs plain secret retrieval at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        audit = Mock(spec=SecretsAuditLogger)
+        encryption = NoEncryption()
+        source = EnvVarSecretSource(audit, encryption)
+
+        monkeypatch.setenv("CPU_SECRETS__TEST__SECRET", "value123")
+
+        caplog.clear()
+        source.get_secret("test.secret")
+
+        assert "Retrieved secret from environment" in caplog.text
+        assert "test.secret" in caplog.text
+        assert "value123" not in caplog.text  # should not log actual secret value
+
+    def test_file_source_get_plain_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test FileSecretSource logs plain file retrieval at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        secret_file = secrets_dir / "test_secret"
+        secret_file.write_text("secret_value")
+
+        audit = Mock(spec=SecretsAuditLogger)
+        encryption = NoEncryption()
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        caplog.clear()
+        source.get_secret("test_secret")
+
+        assert "Retrieved secret from file" in caplog.text
+        assert "test_secret" in caplog.text
+        assert "secret_value" not in caplog.text  # should not log actual secret value
+
+    def test_file_source_encrypted_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test FileSecretSource logs encrypted file retrieval at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+
+        encryption = MasterPassphraseEncryption(passphrase="test_pass")
+        encrypted_data = encryption.encrypt(b"secret_value")
+
+        secret_file = secrets_dir / "test_secret.enc"
+        secret_file.write_bytes(encrypted_data)
+
+        audit = Mock(spec=SecretsAuditLogger)
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        caplog.clear()
+        source.get_secret("test_secret")
+
+        assert "Retrieved secret from file" in caplog.text
+        assert "encrypted" in caplog.text or ".enc" in caplog.text
+        assert "secret_value" not in caplog.text
+
+    def test_secret_not_found_logs_at_error(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test secret not found logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        audit = Mock(spec=SecretsAuditLogger)
+        encryption = NoEncryption()
+        source = EnvVarSecretSource(audit, encryption)
+
+        with pytest.raises(KeyError):
+            source.get_secret("nonexistent.secret")
+
+        assert "Secret not found" in caplog.text
+        assert "nonexistent.secret" in caplog.text
+
+    def test_decryption_failure_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test decryption failure logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+
+        # create encrypted file with one passphrase
+        encryption1 = MasterPassphraseEncryption(passphrase="correct_pass")
+        encrypted_data = encryption1.encrypt(b"secret_value")
+
+        secret_file = secrets_dir / "test_secret.enc"
+        secret_file.write_bytes(encrypted_data)
+
+        # try to decrypt with wrong passphrase
+        audit = Mock(spec=SecretsAuditLogger)
+        encryption2 = MasterPassphraseEncryption(passphrase="wrong_pass")
+        source = FileSecretSource(audit, encryption2, secrets_dir=secrets_dir)
+
+        with pytest.raises(DecryptionError):
+            source.get_secret("test_secret")
+
+        assert "Decryption failed" in caplog.text or "Failed to decrypt" in caplog.text
