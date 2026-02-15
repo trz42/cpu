@@ -29,7 +29,7 @@ from cpu.config.secrets import (
 )
 from cpu.config.secrets_audit import SecretsAuditLogger
 from cpu.config.secrets_context import SecretContext
-from cpu.config.secrets_encryption import NoEncryption
+from cpu.config.secrets_encryption import NoEncryption, EncryptionProvider
 from cpu.config.secrets_sources import EnvVarSecretSource, FileSecretSource, SecretSource, SecretValue
 
 
@@ -236,6 +236,128 @@ secrets:
 
         assert secrets_config.encryption_enabled is False
         assert len(secrets_config.github_configs) == 0
+
+    def test_parse_gitlab_config(self, tmp_path: Path) -> None:
+        """Test parsing GitLab secret configuration."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  gitlab:
+    - name: production
+      context:
+        platform: gitlab
+        environment: production
+      refs:
+        token: gitlab.prod.token
+        webhook_secret: gitlab.prod.webhook_secret
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        secrets_config = SecretsConfiguration.from_config(config)
+
+        assert len(secrets_config.gitlab_configs) == 1
+        assert secrets_config.gitlab_configs[0].name == "production"
+        assert secrets_config.gitlab_configs[0].context == {"platform": "gitlab", "environment": "production"}
+        assert "token" in secrets_config.gitlab_configs[0].refs
+        assert "webhook_secret" in secrets_config.gitlab_configs[0].refs
+
+    def test_parse_s3_config(self, tmp_path: Path) -> None:
+        """Test parsing S3 secret configuration."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  s3:
+    - name: software-eessi
+      context:
+        cvmfs_repo: software.eessi.io
+        environment: production
+      refs:
+        access_key_id: s3.eessi.access_key
+        secret_access_key: s3.eessi.secret_key
+        endpoint_url: s3.eessi.endpoint
+        region: s3.eessi.region
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        secrets_config = SecretsConfiguration.from_config(config)
+
+        assert len(secrets_config.s3_configs) == 1
+        assert secrets_config.s3_configs[0].name == "software-eessi"
+        assert secrets_config.s3_configs[0].context == {"cvmfs_repo": "software.eessi.io", "environment": "production"}
+        assert "access_key_id" in secrets_config.s3_configs[0].refs
+        assert "secret_access_key" in secrets_config.s3_configs[0].refs
+        assert "endpoint_url" in secrets_config.s3_configs[0].refs
+        assert "region" in secrets_config.s3_configs[0].refs
+
+    def test_parse_smee_config(self, tmp_path: Path) -> None:
+        """Test parsing Smee secret configuration."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  smee:
+    - name: development
+      context: {}
+      refs:
+        channel_url: smee.dev.channel_url
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        secrets_config = SecretsConfiguration.from_config(config)
+
+        assert len(secrets_config.smee_configs) == 1
+        assert secrets_config.smee_configs[0].name == "development"
+        assert secrets_config.smee_configs[0].context == {}
+        assert "channel_url" in secrets_config.smee_configs[0].refs
+
+    def test_parse_multiple_platform_configs(self, tmp_path: Path) -> None:
+        """Test parsing multiple platform configurations in one file."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  github:
+    - name: eessi
+      context:
+        organization: EESSI
+      refs:
+        app_id: github.eessi.app_id
+        private_key: github.eessi.private_key
+        webhook_secret: github.eessi.webhook_secret
+  gitlab:
+    - name: prod
+      context:
+        environment: production
+      refs:
+        token: gitlab.prod.token
+        webhook_secret: gitlab.prod.webhook_secret
+  s3:
+    - name: cvmfs
+      context:
+        cvmfs_repo: software.eessi.io
+      refs:
+        access_key_id: s3.access_key
+        secret_access_key: s3.secret_key
+  smee:
+    - name: dev
+      context: {}
+      refs:
+        channel_url: smee.channel
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        secrets_config = SecretsConfiguration.from_config(config)
+
+        assert len(secrets_config.github_configs) == 1
+        assert len(secrets_config.gitlab_configs) == 1
+        assert len(secrets_config.s3_configs) == 1
+        assert len(secrets_config.smee_configs) == 1
 
 
 class TestSecretManager:
@@ -467,6 +589,304 @@ secrets:
         assert secrets1.app_id == "123"
         assert secrets2.app_id == "123"
         assert secrets1 is secrets2  # Same object
+
+    def test_get_gitlab_secrets(self, tmp_path: Path) -> None:
+        """Test get_gitlab_secrets retrieves and caches secrets."""
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "gitlab_token").write_text("token123")
+        (secrets_dir / "gitlab_webhook").write_text("webhook_secret")
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+        encryption = NoEncryption()
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        # Setup configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "gitlab": [{
+                "name": "production",
+                "context": {"platform": "gitlab"},
+                "refs": {
+                    "token": "gitlab_token",
+                    "webhook_secret": "gitlab_webhook"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+        manager.sources = [source]
+
+        context = SecretContext(platform="gitlab", environment="production")
+        secrets = manager.get_gitlab_secrets(context)
+
+        assert secrets.token == "token123"
+        assert secrets.webhook_secret == "webhook_secret"
+
+        # Test cache hit
+        secrets2 = manager.get_gitlab_secrets(context)
+        assert secrets2 is secrets
+
+    def test_get_s3_secrets(self, tmp_path: Path) -> None:
+        """Test get_s3_secrets retrieves and caches secrets."""
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "s3_access_key").write_text("AKIAIOSFODNN7EXAMPLE")
+        (secrets_dir / "s3_secret_key").write_text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+        (secrets_dir / "s3_endpoint").write_text("https://s3.example.com")
+        (secrets_dir / "s3_region").write_text("us-east-1")
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+        encryption = NoEncryption()
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        # Setup configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "s3": [{
+                "name": "cvmfs",
+                "context": {"cvmfs_repo": "software.eessi.io"},
+                "refs": {
+                    "access_key_id": "s3_access_key",
+                    "secret_access_key": "s3_secret_key",
+                    "endpoint_url": "s3_endpoint",
+                    "region": "s3_region"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+        manager.sources = [source]
+
+        context = SecretContext(cvmfs_repo="software.eessi.io", environment="production")
+        secrets = manager.get_s3_secrets(context)
+
+        assert secrets.access_key_id == "AKIAIOSFODNN7EXAMPLE"
+        assert secrets.secret_access_key == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        assert secrets.endpoint_url == "https://s3.example.com"
+        assert secrets.region == "us-east-1"
+
+        # Test cache hit
+        secrets2 = manager.get_s3_secrets(context)
+        assert secrets2 is secrets
+
+    def test_get_s3_secrets_optional_fields(self, tmp_path: Path) -> None:
+        """Test get_s3_secrets with only required fields."""
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "s3_access_key").write_text("AKIAIOSFODNN7EXAMPLE")
+        (secrets_dir / "s3_secret_key").write_text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+        encryption = NoEncryption()
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        # Setup configuration without optional fields
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "s3": [{
+                "name": "cvmfs",
+                "context": {},
+                "refs": {
+                    "access_key_id": "s3_access_key",
+                    "secret_access_key": "s3_secret_key"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+        manager.sources = [source]
+
+        context = SecretContext(cvmfs_repo="software.eessi.io")
+        secrets = manager.get_s3_secrets(context)
+
+        assert secrets.access_key_id == "AKIAIOSFODNN7EXAMPLE"
+        assert secrets.secret_access_key == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        assert secrets.endpoint_url is None
+        assert secrets.region is None
+
+    def test_get_smee_secrets(self, tmp_path: Path) -> None:
+        """Test get_smee_secrets retrieves and caches secrets."""
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "smee_channel").write_text("https://smee.io/abc123")
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+        encryption = NoEncryption()
+        source = FileSecretSource(audit, encryption, secrets_dir=secrets_dir)
+
+        # Setup configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "smee": [{
+                "name": "development",
+                "context": {},
+                "refs": {
+                    "channel_url": "smee_channel"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+        manager.sources = [source]
+
+        secrets = manager.get_smee_secrets()
+
+        assert secrets.channel_url == "https://smee.io/abc123"
+
+        # Test cache hit
+        secrets2 = manager.get_smee_secrets()
+        assert secrets2 is secrets
+
+    def test_get_gitlab_secrets_no_matching_config(self, tmp_path: Path) -> None:
+        """Test get_gitlab_secrets raises error when no config matches."""
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {"gitlab": []}
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        context = SecretContext(platform="gitlab")
+
+        with pytest.raises(SecretNotFoundError, match="No GitLab secret configuration matches"):
+            manager.get_gitlab_secrets(context)
+
+    def test_get_s3_secrets_no_matching_config(self, tmp_path: Path) -> None:
+        """Test get_s3_secrets raises error when no config matches."""
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {"s3": []}
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        context = SecretContext(cvmfs_repo="software.eessi.io")
+
+        with pytest.raises(SecretNotFoundError, match="No S3 secret configuration matches"):
+            manager.get_s3_secrets(context)
+
+    def test_get_smee_secrets_no_config(self, tmp_path: Path) -> None:
+        """Test get_smee_secrets raises error when no config exists."""
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {"smee": []}
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        with pytest.raises(SecretNotFoundError, match="No Smee secret configuration found"):
+            manager.get_smee_secrets()
+
+    def test_create_file_source_from_config(self, tmp_path: Path) -> None:
+        """Test creating file secret source from configuration."""
+        secrets_dir = tmp_path / "custom_secrets"
+        secrets_dir.mkdir()
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "sources": [
+                {"type": "file", "secrets_dir": str(secrets_dir)}
+            ]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        assert len(manager.sources) == 1
+        assert isinstance(manager.sources[0], FileSecretSource)
+        assert manager.sources[0].secrets_dir == secrets_dir
+
+    def test_create_env_source_from_config(self, tmp_path: Path) -> None:
+        """Test creating env secret source from configuration."""
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "sources": [
+                {"type": "env"}
+            ]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        assert len(manager.sources) == 1
+        assert isinstance(manager.sources[0], EnvVarSecretSource)
+
+    def test_create_multiple_sources_from_config(self, tmp_path: Path) -> None:
+        """Test creating multiple sources in priority order."""
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "sources": [
+                {"type": "env"},
+                {"type": "file", "secrets_dir": str(secrets_dir)}
+            ]
+        }
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        assert len(manager.sources) == 2
+        assert isinstance(manager.sources[0], EnvVarSecretSource)
+        assert isinstance(manager.sources[1], FileSecretSource)
+
+    def test_default_source_when_none_configured(self, tmp_path: Path) -> None:
+        """Test default env source is created when no sources configured."""
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}  # No sources in config
+
+        manager = SecretManager(config, audit_logger=audit)
+
+        # Should have default env source
+        assert len(manager.sources) == 1
+        assert isinstance(manager.sources[0], EnvVarSecretSource)
+
+    def test_custom_encryption_provider(self, tmp_path: Path) -> None:
+        """Test passing custom encryption provider."""
+        from unittest.mock import Mock
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        custom_encryption = Mock(spec=EncryptionProvider)
+
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        manager = SecretManager(config, audit_logger=audit, encryption=custom_encryption)
+
+        assert manager.encryption is custom_encryption
+
+    def test_custom_sources(self, tmp_path: Path) -> None:
+        """Test passing custom sources."""
+        from unittest.mock import Mock
+
+        audit_log = tmp_path / "audit.log"
+        audit = SecretsAuditLogger(audit_file=audit_log)
+
+        custom_source = Mock(spec=SecretSource)
 
 
 class TestSecretsLogging:
