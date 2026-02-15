@@ -8,6 +8,7 @@ Tests for component orchestrator.
 
 from __future__ import annotations
 
+import logging
 import time
 
 import pytest
@@ -381,3 +382,94 @@ class TestOrchestratorHealthMonitoring:
         orchestrator.start_all()
 
         assert orchestrator.is_healthy()
+
+
+class TestOrchestratorLogging:
+    """Test logging functionality in Orchestrator."""
+
+    def test_orchestrator_creation_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test orchestrator creation logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        Orchestrator()
+
+        assert "Initialized Orchestrator" in caplog.text
+
+    def test_register_component_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test component registration logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        orchestrator = Orchestrator()
+        component = MockComponent(name="test_component")
+
+        caplog.clear()
+        orchestrator.register(component)
+
+        assert "Registered component: test_component" in caplog.text
+
+    def test_initialize_all_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test initialize_all logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        orchestrator = Orchestrator()
+        component = MockComponent(name="test_component")
+        orchestrator.register(component)
+
+        caplog.clear()
+        orchestrator.initialize_all()
+
+        assert "Initializing all components" in caplog.text
+
+    def test_start_all_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test start_all logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        orchestrator = Orchestrator()
+        component = MockRunnableComponent(name="test_component")
+        orchestrator.register(component)
+        orchestrator.initialize_all()
+
+        caplog.clear()
+        orchestrator.start_all()
+
+        time.sleep(0.1)
+        orchestrator.stop_all()
+
+        assert "Starting all components" in caplog.text
+
+    def test_stop_all_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test stop_all logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        orchestrator = Orchestrator()
+        component = MockRunnableComponent(name="test_component")
+        orchestrator.register(component)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        time.sleep(0.1)
+
+        caplog.clear()
+        orchestrator.stop_all()
+
+        assert "Stopping all components" in caplog.text
+
+    def test_health_check_all_logs_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test health_check_all logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        orchestrator = Orchestrator()
+        component = MockRunnableComponent(name="test_component")
+        orchestrator.register(component)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        time.sleep(0.1)
+
+        caplog.clear()
+        statuses = orchestrator.health_check_all()
+
+        orchestrator.stop_all()
+
+        assert statuses["test_component"] == HealthStatus.HEALTHY
+        assert "Health check for component test_component: HEALTHY" in caplog.text
