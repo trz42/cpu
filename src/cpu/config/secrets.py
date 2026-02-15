@@ -15,6 +15,7 @@ This module provides:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +26,8 @@ from cpu.config.secrets_audit import SecretsAuditLogger
 from cpu.config.secrets_context import SecretContext
 from cpu.config.secrets_encryption import EncryptionConfig, EncryptionProvider
 from cpu.config.secrets_sources import EnvVarSecretSource, FileSecretSource, SecretSource, SecretValue
+
+logger = logging.getLogger(__name__)
 
 # Custom exceptions
 
@@ -246,6 +249,7 @@ class SecretsConfiguration:
         Returns:
             SecretsConfiguration instance
         """
+        logger.info("Loading secrets configuration")
         secrets_data = config.get("secrets", {})
 
         # Parse encryption settings
@@ -253,8 +257,11 @@ class SecretsConfiguration:
         encryption_enabled = encryption_data.get("enabled", False)
         passphrase_env_var = encryption_data.get("passphrase_env_var", "CPU_MAIN_PASSPHRASE")
 
+        logger.info(f"Secrets configuration: encryption={encryption_enabled}")
+
         # Parse sources
         sources = secrets_data.get("sources", [])
+        logger.debug(f"Configured {len(sources)} secret sources")
 
         # Parse GitHub configs
         github_configs: list[GitHubSecretConfig] = []
@@ -264,6 +271,8 @@ class SecretsConfiguration:
             )
             github_configs.append(github_config)
 
+        logger.debug(f"Loaded {len(github_configs)} GitHub secret configurations")
+
         # Parse GitLab configs
         gitlab_configs: list[GitLabSecretConfig] = []
         for gl_data in secrets_data.get("gitlab", []):
@@ -272,6 +281,8 @@ class SecretsConfiguration:
             )
             gitlab_configs.append(gitlab_config)
 
+        logger.debug(f"Loaded {len(gitlab_configs)} GitLab secret configurations")
+
         # Parse S3 configs
         s3_configs: list[S3SecretConfig] = []
         for s3_data in secrets_data.get("s3", []):
@@ -279,6 +290,8 @@ class SecretsConfiguration:
                 name=s3_data["name"], context=s3_data.get("context", {}), refs=SecretRefs(refs=s3_data.get("refs", {}))
             )
             s3_configs.append(s3_config)
+
+        logger.debug(f"Loaded {len(s3_configs)} S3 secret configurations")
 
         # Parse Smee configs
         smee_configs: list[SecretConfig] = []
@@ -289,6 +302,8 @@ class SecretsConfiguration:
                 refs=SecretRefs(refs=smee_data.get("refs", {})),
             )
             smee_configs.append(smee_config)
+
+        logger.debug(f"Loaded {len(smee_configs)} Smee secret configurations")
 
         return cls(
             encryption_enabled=encryption_enabled,
@@ -372,6 +387,8 @@ class SecretManager:
         self._s3_cache: dict[str, S3Secrets] = {}
         self._smee_cache: dict[str, SmeeSecrets] = {}
 
+        logger.info(f"Initialized SecretManager with {len(self.sources)} sources")
+
     def _create_encryption_provider(self) -> EncryptionProvider:
         """Create encryption provider from configuration."""
         encryption_config = EncryptionConfig(
@@ -397,16 +414,19 @@ class SecretManager:
 
             if source_type == "env":
                 sources.append(EnvVarSecretSource(self.audit, self.encryption))
+                logger.debug("Added environment variable secret source")
 
             elif source_type == "file":
                 secrets_dir = Path(source_config.get("secrets_dir", "/etc/cpu/secrets"))
                 sources.append(FileSecretSource(self.audit, self.encryption, secrets_dir))
+                logger.debug(f"Added file secret source: {secrets_dir}")
 
             # Future: vault, etc.
 
         # Always have at least env source
         if not sources:
             sources.append(EnvVarSecretSource(self.audit, self.encryption))
+            logger.debug("Using default environment variable source")
 
         return sources
 
@@ -428,15 +448,19 @@ class SecretManager:
         Returns:
             Best matching config, or None if no match
         """
+        logger.debug(f"Finding matching config for context (searching {len(configs)})")
+
         matches = []
 
         for config in configs:
             if config.matches(context):
+                logger.debug(f"Matched config: {config.name}")
                 # Count specificity (more context fields = more specific)
                 specificity = len([value for value in config.context.values() if value])
                 matches.append((specificity, config))
 
         if not matches:
+            logger.debug("No matching config found")
             return None
 
         # Return most specific match (highest specificity score)
@@ -458,16 +482,21 @@ class SecretManager:
         Raises:
             SecretNotFoundError: If secret not found in any source
         """
+        logger.debug(f"Loading secret: {secret_ref}")
         errors = []
 
         for source in self.sources:
             try:
-                return source.get_secret(secret_ref)
+                value = source.get_secret(secret_ref)
+                logger.debug(f"Successfully loaded secret '{secret_ref}' from {source.__class__.__name__}")
+                return value
             except (KeyError, FileNotFoundError) as err:
                 errors.append(f"{source.__class__.__name__}: {err}")
+                logger.debug(f"Secret '{secret_ref}' not in {source.__class__.__name__}, trying next source")
                 continue
 
         # Not found in any source
+        logger.error(f"Secret '{secret_ref}' not found in any source")
         raise SecretNotFoundError(f"Secret '{secret_ref}' not found in any source. " f"Tried: {', '.join(errors)}")
 
     def get_github_secrets(
@@ -492,7 +521,10 @@ class SecretManager:
 
         # Check cache
         if cache_key in self._github_cache:
+            logger.debug(f"GitHub secrets cache hit for key: {cache_key}")
             return self._github_cache[cache_key]
+
+        logger.info(f"Loading GitHub secrets for context: platform={context.platform}, org={context.organization}")
 
         # Find matching configuration
         config = self._find_matching_config(
@@ -501,6 +533,7 @@ class SecretManager:
         )
 
         if config is None:
+            logger.error(f"No matching GitHub secret configuration for context: {context}")
             raise SecretNotFoundError(f"No GitHub secret configuration matches context: {context}")
 
         # Log access
@@ -536,9 +569,12 @@ class SecretManager:
             # Cache it
             self._github_cache[cache_key] = secrets
 
+            logger.info(f"Successfully loaded GitHub secrets for config: {config.name}")
+
             return secrets
 
         except SecretNotFoundError as err:
+            logger.error(f"Failed to load GitHub secrets for config '{config.name}': {err}")
             raise SecretNotFoundError(f"Failed to load GitHub secrets for config '{config.name}': {err}") from err
 
     def get_gitlab_secrets(
@@ -563,7 +599,10 @@ class SecretManager:
 
         # Check cache
         if cache_key in self._gitlab_cache:
+            logger.debug(f"GitLab secrets cache hit for key: {cache_key}")
             return self._gitlab_cache[cache_key]
+
+        logger.info(f"Loading GitLab secrets for context: platform={context.platform}, env={context.environment}")
 
         # Find matching configuration
         config = self._find_matching_config(
@@ -572,6 +611,7 @@ class SecretManager:
         )
 
         if config is None:
+            logger.error(f"No matching GitLab secret configuration for context: {context}")
             raise SecretNotFoundError(f"No GitLab secret configuration matches context: {context}")
 
         # Log access
@@ -598,10 +638,13 @@ class SecretManager:
             # Cache it
             self._gitlab_cache[cache_key] = secrets
 
+            logger.info(f"Successfully loaded GitLab secrets for config: {config.name}")
+
             return secrets
 
-        except SecretNotFoundError as e:
-            raise SecretNotFoundError(f"Failed to load GitLab secrets for config '{config.name}': {e}") from e
+        except SecretNotFoundError as err:
+            logger.error(f"Failed to load GitLab secrets for config '{config.name}': {err}")
+            raise SecretNotFoundError(f"Failed to load GitLab secrets for config '{config.name}': {err}") from err
 
     def get_s3_secrets(
         self,
@@ -625,7 +668,10 @@ class SecretManager:
 
         # Check cache
         if cache_key in self._s3_cache:
+            logger.debug(f"S3 secrets cache hit for key: {cache_key}")
             return self._s3_cache[cache_key]
+
+        logger.info(f"Loading S3 secrets for context: cvmfs_repo={context.cvmfs_repo}, env={context.environment}")
 
         # Find matching configuration
         config = self._find_matching_config(
@@ -634,6 +680,7 @@ class SecretManager:
         )
 
         if config is None:
+            logger.error(f"No matching S3 secret configuration for context: {context}")
             raise SecretNotFoundError(f"No S3 secret configuration matches context: {context}")
 
         # Log access
@@ -671,10 +718,13 @@ class SecretManager:
             # Cache it
             self._s3_cache[cache_key] = secrets
 
+            logger.info(f"Successfully loaded S3 secrets for config: {config.name}")
+
             return secrets
 
-        except SecretNotFoundError as e:
-            raise SecretNotFoundError(f"Failed to load S3 secrets for config '{config.name}': {e}") from e
+        except SecretNotFoundError as err:
+            logger.error(f"Failed to load S3 secrets for config '{config.name}': {err}")
+            raise SecretNotFoundError(f"Failed to load S3 secrets for config '{config.name}': {err}") from err
 
     def get_smee_secrets(self) -> SmeeSecrets:
         """
@@ -693,10 +743,14 @@ class SecretManager:
         # Check cache
         cache_key = "default"
         if cache_key in self._smee_cache:
+            logger.debug("Smee secrets cache hit")
             return self._smee_cache[cache_key]
+
+        logger.info("Loading Smee secrets")
 
         # Find configuration (usually just one default config)
         if not self.secrets_config.smee_configs:
+            logger.error("No Smee secret configuration found")
             raise SecretNotFoundError("No Smee secret configuration found")
 
         # Use first config (typically only one for Smee)
@@ -721,7 +775,10 @@ class SecretManager:
             # Cache it
             self._smee_cache[cache_key] = secrets
 
+            logger.info(f"Successfully loaded Smee secrets for config: {config.name}")
+
             return secrets
 
-        except SecretNotFoundError as e:
-            raise SecretNotFoundError(f"Failed to load Smee secrets for config '{config.name}': {e}") from e
+        except SecretNotFoundError as err:
+            logger.error(f"Failed to load Smee secrets for config '{config.name}': {err}")
+            raise SecretNotFoundError(f"Failed to load Smee secrets for config '{config.name}': {err}") from err

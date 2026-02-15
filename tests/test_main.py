@@ -8,11 +8,12 @@ End-to-end tests for the main application CLI.
 
 from __future__ import annotations
 
+import logging
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -751,3 +752,100 @@ bot:
 
             # should exit with 0 for success
             assert exc_info.value.code == 0
+
+
+class TestMainLogging:
+    """Test logging functionality in __main__.py."""
+
+    def test_main_startup_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test main startup logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+  logging:
+    level: INFO
+""")
+
+        with (
+            patch('sys.argv', ['cpu', '--config', str(config_file)]),
+            patch('cpu.__main__.run_orchestrator')
+        ):
+            from cpu.__main__ import main
+
+            result = main()
+
+        assert result == 0
+        assert "CPU Bot starting" in caplog.text
+        assert "Configuration validated successfully" in caplog.text
+
+    def test_component_initialization_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test component initialization logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+  logging:
+    level: INFO
+""")
+
+        with (
+            patch('sys.argv', ['cpu', '--config', str(config_file)]),
+            patch('cpu.__main__.run_orchestrator')
+        ):
+            from cpu.__main__ import main
+
+            main()
+
+        assert "All components initialized" in caplog.text
+
+    def test_shutdown_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test shutdown logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        from cpu.__main__ import run_orchestrator
+        from cpu.components.orchestrator import Orchestrator
+
+        orchestrator = Mock(spec=Orchestrator)
+        orchestrator._shutdown_requested = True
+
+        run_orchestrator(orchestrator)
+
+        assert "Shutting down" in caplog.text
+        assert "All components stopped" in caplog.text
+
+    def test_config_error_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test configuration error logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        config_file = tmp_path / "nonexistent.yaml"
+
+        with patch('sys.argv', ['cpu', '--config', str(config_file)]):
+            from cpu.__main__ import main
+
+            result = main()
+
+        assert result == 1
+        assert "Configuration file not found" in caplog.text or "Error" in caplog.text
+
+    def test_validation_error_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test validation error logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  other_key: value
+""")  # missing required setting 'num_workers'
+
+        with patch('sys.argv', ['cpu', '--config', str(config_file)]):
+            from cpu.__main__ import main
+
+            result = main()
+
+        assert result == 1
+        assert "Configuration validation failed" in caplog.text or "Error" in caplog.text

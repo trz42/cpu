@@ -23,6 +23,8 @@ from cpu.logging.setup import configure_logging
 from cpu.messaging.message import Message
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
+logger = logging.getLogger(__name__)
+
 
 def create_orchestrator(config: Config) -> Orchestrator:
     """
@@ -76,10 +78,13 @@ def run_orchestrator(orchestrator: Orchestrator) -> None:
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nKeyboard interrupt received")
+        logger.info("Keyboard interrupt received")
     finally:
         print("Shutting down...")
+        logger.info("Shutting down orchestrator")
         orchestrator.stop_all(timeout=10)
         print("✓ All components stopped")
+        logger.info("All components stopped successfully")
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -299,7 +304,6 @@ def main() -> int:
 
         # IMPORTANT: configure logging BEFORE components start
         configure_logging(config)
-        logger = logging.getLogger(__name__)
         logger.info("CPU Bot starting...")
 
         # create banner header
@@ -307,6 +311,7 @@ def main() -> int:
 
         banner += f"Loaded configuration from: {config_file}\n"
         banner += "✓ Configuration validated successfully\n"
+        logger.info("Configuration validated successfully")
 
         # add startup information
         banner += create_startup_info(config_file, config, verbose=args.extended_startup_info)
@@ -316,30 +321,36 @@ def main() -> int:
         orchestrator.initialize_all()
 
         banner += "✓ All components initialized\n"
+        logger.info("All components initialized successfully")
         banner += "\nStarting components...\n"
 
         # print banner with effects if configured
         print_banner(banner, config)
 
+        logger.info("Starting all components")
         run_orchestrator(orchestrator)
 
         print("\nShutdown complete!")
+        logger.info("Shutdown complete")
 
         return 0
 
     except FileNotFoundError as err:
         #print(f"Error: Configuration file not found: {err}", file=sys.stderr)
         print(f"Error: {err}", file=sys.stderr)
+        logger.error(f"Configuration file not found: {err}")
         return 1
 
     except ConfigValidationError as err:
         print(f"Error: Configuration validation failed: {err}", file=sys.stderr)
         print("\nRequired configuration keys:", file=sys.stderr)
         print("  - bot.num_workers: Number of worker threads", file=sys.stderr)
+        logger.error(f"Configuration validation failed: {err}")
         return 1
 
     except ConfigError as err:
         print(f"Error: Configuration error: {err}", file=sys.stderr)
+        logger.error(f"Configuration error: {err}")
         return 1
 
     except KeyboardInterrupt:
@@ -348,6 +359,7 @@ def main() -> int:
 
     except Exception as err:
         print(f"Error: Unexpected error: {err}", file=sys.stderr)
+        logger.error(f"Unexpected error: {err}", exc_info=True)
         import traceback
 
         traceback.print_exc()
