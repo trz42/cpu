@@ -8,7 +8,9 @@ Unit tests for SecretManager and secret type dataclasses.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -27,7 +29,8 @@ from cpu.config.secrets import (
 )
 from cpu.config.secrets_audit import SecretsAuditLogger
 from cpu.config.secrets_context import SecretContext
-from cpu.config.secrets_sources import EnvVarSecretSource
+from cpu.config.secrets_encryption import NoEncryption
+from cpu.config.secrets_sources import EnvVarSecretSource, FileSecretSource, SecretSource, SecretValue
 
 
 class TestSecretDataclasses:
@@ -464,3 +467,221 @@ secrets:
         assert secrets1.app_id == "123"
         assert secrets2.app_id == "123"
         assert secrets1 is secrets2  # Same object
+
+
+class TestSecretsLogging:
+    """Test logging functionality in secrets manager."""
+
+    def test_secrets_configuration_from_config_logs_at_info(
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test SecretsConfiguration.from_config logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  encryption:
+    enabled: true
+  github:
+    - name: default
+      context: {}
+      refs:
+        app_id: github.app_id
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        caplog.clear()
+        SecretsConfiguration.from_config(config)
+
+        assert "Loading secrets configuration" in caplog.text
+        assert "encryption=True" in caplog.text
+
+    def test_secret_manager_init_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test SecretManager initialization logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        # mock config that returns empty secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        # use temp path for audit log
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        SecretManager(config, audit_logger=audit_logger)
+
+        assert "Initialized SecretManager" in caplog.text
+
+    def test_load_secret_value_logs_at_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test _load_secret_value logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        secret_file = secrets_dir / "test_secret"
+        secret_file.write_text("secret_value")
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        encryption = NoEncryption()
+        source = FileSecretSource(audit_logger, encryption, secrets_dir=secrets_dir)
+
+        # mock config that returns empty secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        manager = SecretManager(config, audit_logger=audit_logger)
+        manager.sources = [source]
+
+        caplog.clear()
+        manager._load_secret_value("test_secret")
+
+        assert "Loading secret" in caplog.text
+        assert "test_secret" in caplog.text
+        assert "secret_value" not in caplog.text  # should not log actual value
+
+    def test_load_secret_fallback_logs_at_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test _load_secret_value fallback attempt logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        # Create two sources where first fails, second succeeds
+        source1 = Mock(spec=SecretSource)
+        source1.get_secret.side_effect = KeyError("Not found")
+        source1.__class__.__name__ = "Source1"
+
+        source2 = Mock(spec=SecretSource)
+        source2.get_secret.return_value = SecretValue("value", "source2", "test", False)
+        source2.__class__.__name__ = "Source2"
+
+        # mock config that returns empty secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+        manager.sources = [source1, source2]
+
+        caplog.clear()
+        manager._load_secret_value("test_secret")
+
+        assert "trying next source" in caplog.text
+
+    def test_load_secret_not_found_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test secret not found logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        # mock config that returns empty secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {}
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+        manager.sources = []
+
+        with pytest.raises(SecretNotFoundError):
+            manager._load_secret_value("nonexistent")
+
+        assert "not found in any source" in caplog.text
+        assert "nonexistent" in caplog.text
+
+    def test_get_github_secrets_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test get_github_secrets logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "app_id").write_text("12345")
+        (secrets_dir / "private_key").write_text("test_key")
+        (secrets_dir / "webhook_secret").write_text("test_secret")
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        encryption = NoEncryption()
+        source = FileSecretSource(audit_logger, encryption, secrets_dir=secrets_dir)
+
+        # create mock config that returns our secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "github": [{
+                "name": "default",
+                "context": {},
+                "refs": {
+                    "app_id": "app_id",
+                    "private_key": "private_key",
+                    "webhook_secret": "webhook_secret"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit_logger)
+        manager.sources = [source]
+
+        caplog.clear()
+        context = SecretContext(platform="github", organization="EESSI")
+        manager.get_github_secrets(context)
+
+        assert "Retrieved GitHub secrets" in caplog.text or "Loading GitHub secrets" in caplog.text
+        assert "default" in caplog.text
+
+    def test_get_secrets_cache_hit_logs_at_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test cache hit logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        # Setup secrets
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        (secrets_dir / "app_id").write_text("12345")
+        (secrets_dir / "private_key").write_text("test_key")
+        (secrets_dir / "webhook_secret").write_text("test_secret")
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        encryption = NoEncryption()
+        source = FileSecretSource(audit_logger, encryption, secrets_dir=secrets_dir)
+
+        # create mock config that returns our secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {
+            "github": [{
+                "name": "default",
+                "context": {},
+                "refs": {
+                    "app_id": "app_id",
+                    "private_key": "private_key",
+                    "webhook_secret": "webhook_secret"
+                }
+            }]
+        }
+
+        manager = SecretManager(config, audit_logger=audit_logger)
+        manager.sources = [source]
+
+        context = SecretContext(platform="github", organization="EESSI")
+
+        # First call - miss
+        manager.get_github_secrets(context)
+
+        # Second call - hit
+        caplog.clear()
+        manager.get_github_secrets(context)
+
+        assert "cache hit" in caplog.text.lower() or "Using cached" in caplog.text
+
+    def test_no_matching_config_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test no matching configuration logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        # create mock config that returns our secrets configuration
+        config = MagicMock(spec=Config)
+        config.get.return_value = {"github": []}
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        context = SecretContext(platform="github", organization="EESSI")
+
+        with pytest.raises(SecretNotFoundError):
+            manager.get_github_secrets(context)
+
+        assert "No matching" in caplog.text or "not found" in caplog.text.lower()
