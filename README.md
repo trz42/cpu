@@ -209,3 +209,33 @@ perform the following steps to create it manually.
    - Title: vX.Y.Z
    - Description: contents of `CHANGELOG.md` for this release
    - Upload `cpu-X.Y.Z-py3-none-any.whl` and `cpu-X.Y.Z.tar.gz` from dist directory
+
+## Logging
+
+CPU uses Python's built-in logging with a custom `TRACE` level for detailed debugging.
+
+### Log Levels
+
+- **TRACE (5)**: Function entry/exit via decorators, very detailed flow
+- **DEBUG (10)**: Detailed diagnostic information
+- **INFO (20)**: Normal operational messages (default)
+- **WARNING (30)**: Unexpected but handled situations
+- **ERROR (40)**: Error conditions
+- **CRITICAL (50)**: System-level failures
+
+### Configuration
+
+Configure logging in `config.yaml`:
+```yaml
+bot:
+  logging:
+    level: INFO
+    file: logs/cpu.log
+    
+    # Per-module overrides
+    loggers:
+      cpu.messaging: DEBUG
+      cpu.components: INFO
+```
+
+See [docs/logging.md](docs/logging.md) for detailed logging guide.
