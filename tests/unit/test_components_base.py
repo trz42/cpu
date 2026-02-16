@@ -11,6 +11,8 @@ This ensures the interfaces are well-defined and implementable.
 
 from __future__ import annotations
 
+import logging
+import threading
 import time
 
 import pytest
@@ -145,6 +147,7 @@ class TestRunnableComponentClass:
         assert component.get_state() == ComponentState.STOPPED
         assert component.iterations < 100  # stopped early
 
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
     def test_runnable_component_exception_sets_failed_state(self) -> None:
         """Test that exceptions in process_iteration set FAILED state."""
         import threading
@@ -167,3 +170,49 @@ class TestRunnableComponentClass:
         thread.join(timeout=1)
 
         assert component.get_state() == ComponentState.FAILED
+
+
+class TestComponentBaseLogging:
+    """Test logging added to base component classes."""
+
+    def test_component_init_logs_creation(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test ComponentInterface.__init__ logs component creation at INFO."""
+        caplog.set_level(logging.INFO)
+
+        MockComponent(name="test_component")
+
+        assert "Created component: test_component" in caplog.text
+
+    def test_runnable_component_start_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test RunnableComponent.start() logs at INFO."""
+        caplog.set_level(logging.INFO)
+
+        component = MockRunnableComponent(name="test")
+        component.initialize()
+
+        thread = threading.Thread(target=component.start)
+        thread.start()
+
+        time.sleep(0.1)
+        component.stop()
+        thread.join(timeout=1)
+
+        assert "Starting component: test" in caplog.text
+
+    def test_runnable_component_stop_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test RunnableComponent.stop() logs at INFO."""
+        caplog.set_level(logging.INFO)
+
+        component = MockRunnableComponent(name="test")
+        component.initialize()
+
+        thread = threading.Thread(target=component.start)
+        thread.start()
+
+        time.sleep(0.1)
+
+        caplog.clear()
+        component.stop()
+        thread.join(timeout=1)
+
+        assert "Stopping component: test" in caplog.text

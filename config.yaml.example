@@ -18,9 +18,33 @@ bot:
     file: logs/cpu.log
 
     # Root log level
+    # Options: TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL
+    #
+    # TRACE (5):  Function entry/exit via decorators, very detailed flow
+    #             Use for deep debugging only - HIGH OVERHEAD
+    #             Example: Debugging message queue internals
+    #
+    # DEBUG (10): Detailed diagnostic information, variable values
+    #             Use for troubleshooting specific issues
+    #             Example: Queue sizes, state transitions, retry logic
+    #
+    # INFO (20):  Normal operational messages, lifecycle events
+    #             RECOMMENDED for production
+    #             Example: Component startup, job submissions, artifact deployment
+    #
+    # WARNING (30): Unexpected but handled situations
+    #             Example: Retries, degraded operation
+    #
+    # ERROR (40): Error conditions, operation failures
+    #             Example: Failed job submissions, API errors
+    #
+    # CRITICAL (50): System-level failures
+    #             Example: Cannot connect to Slurm, fatal errors
     level: INFO
 
     # Log format
+    # Development format may include more detail:
+    # format: "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
     format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # Rotation settings
@@ -28,13 +52,23 @@ bot:
     backup_count: 5
     compress: true
 
-    # Hierarchical logger levels (optional)
+    # Per-module log levels (optional, overrides global/root level)
+    # Use these to fine-tune logging for specific modules
     loggers:
-      cpu.timer: DEBUG
-      cpu.job_manager: INFO
+      # Example: Detailed debugging of messaging infrastructure
+      # cpu.messaging: TRACE
 
-  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-  log_level: INFO
+      # Example: Debug level for components
+      # cpu.components: DEBUG
+
+      # Example: Default levels for specific modules
+      cpu.timer: INFO
+      cpu.job_manager: INFO
+      cpu.event_handler: INFO
+      cpu.worker: INFO
+
+      # Config module usually doesn't need verbose logging
+      cpu.config: WARNING
 
   # Enable terminal effects for banner
   # Set to true for animated banner on startup

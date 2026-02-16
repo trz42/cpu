@@ -12,11 +12,40 @@ import logging
 
 import pytest
 
+from cpu.logging import TRACE
 from cpu.logging.decorators import trace_calls
 
 
 class TestTraceDecorator:
     """Test @trace_calls decorator."""
+
+    def test_trace_decorator_defaults_to_trace_level(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test decorator uses TRACE level by default."""
+        caplog.set_level(TRACE)
+
+        @trace_calls()  # no level specified
+        def test_func() -> str:
+            return "result"
+
+        test_func()
+
+        assert len(caplog.records) > 0
+        # check that logs are at TRACE level
+        assert any(record.levelno == TRACE for record in caplog.records)
+        assert ">>> test_func" in caplog.text
+
+    def test_trace_decorator_filtered_at_debug_level(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test TRACE logs filtered when logger at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        @trace_calls()  # uses TRACE by default
+        def test_func() -> str:
+            return "result"
+
+        test_func()
+
+        # should not log at TRACE when level is DEBUG
+        assert ">>> test_func" not in caplog.text
 
     def test_trace_decorator_logs_entry(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test function entry is logged."""

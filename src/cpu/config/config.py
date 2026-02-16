@@ -19,11 +19,14 @@ Example:
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -98,8 +101,11 @@ class Config:
             ConfigError: If config file cannot be parsed
             FileNotFoundError: If config file doesn't exist
         """
+        logger.info(f"Loading configuration from {self.config_file}")
+
         # Load from YAML file
         if not self.config_file.exists():
+            logger.error(f"Configuration file not found: {self.config_file}")
             raise FileNotFoundError(
                 f"Configuration file not found: {self.config_file}"
             )
@@ -108,6 +114,7 @@ class Config:
             with open(self.config_file, encoding="utf-8") as file:
                 file_content = file.read()
         except OSError as err:
+            logger.error(f"Failed to open configuration file {self.config_file}: {err}")
             # covers permission denied, IO errors, etc.
             raise ConfigError(
                 f"Failed to open configuration file {self.config_file}: {err}"
@@ -116,11 +123,13 @@ class Config:
         try:
             self._data = yaml.safe_load(file_content) or {}
         except yaml.YAMLError as err:
+            logger.error(f"Failed to parse configuration file {self.config_file}: {err}")
             raise ConfigError(
                 f"Failed to parse configuration file {self.config_file}: {err}"
             ) from err
         except Exception as err:
             # catch any other unexpected errors during parsing
+            logger.error(f"Unexpected error loading configuration file {self.config_file}: {err}")
             raise ConfigError(
                 f"Unexpected error loading configuration file {self.config_file}: {err}"
             ) from err
@@ -131,6 +140,8 @@ class Config:
         # Apply environment variable overrides
         if self.env_prefix is not None:
             self._apply_env_overrides()
+
+        logger.info(f"Successfully loaded configuration from {self.config_file}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -173,6 +184,7 @@ class Config:
             if isinstance(value, dict) and part in value:
                 value = value[part]
             else:
+                logger.debug(f"Configuration key not found: {key}, using default={default}")
                 return default
 
         return value
@@ -219,11 +231,14 @@ class Config:
                 missing_keys.append(key)
 
         if missing_keys:
+            logger.error(f"Configuration validation failed: missing keys: {', '.join(missing_keys)}")
             if raise_on_error:
                 raise ConfigValidationError(
                     f"Missing required configuration keys: {', '.join(missing_keys)}"
                 )
             return False
+
+        logger.info(f"Configuration validation passed: {len(required_keys)} keys validated")
 
         return True
 
@@ -257,6 +272,8 @@ class Config:
 
             # Convert env string to appropriate type
             converted_value = self._convert_type(env_value, current_value)
+
+            logger.debug(f"Environment override: {config_key} (from {env_key})")
 
             # Set the value in config
             self._set_value(config_key, converted_value)

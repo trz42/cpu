@@ -15,12 +15,15 @@ Supports multiple sources with fallback chain:
 from __future__ import annotations
 
 import base64
+import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 from cpu.config.secrets_audit import SecretsAuditLogger
 from cpu.config.secrets_encryption import DecryptionError, EncryptionProvider
+
+logger = logging.getLogger(__name__)
 
 
 class SecretValue:
@@ -108,6 +111,7 @@ class SecretSource(ABC):
         try:
             return self.encryption.decrypt(data)
         except DecryptionError as err:
+            logger.error(f"Failed to decrypt secret '{secret_ref}': {type(err).__name__}")
             self.audit.log_decryption_error(secret_ref, str(err))
             raise
 
@@ -136,6 +140,7 @@ class EnvVarSecretSource(SecretSource):
         # Try plain value
         if env_key in os.environ:
             value = os.environ[env_key]
+            logger.info(f"Retrieved secret from environment (plain): {secret_ref}")
             self.audit.log_secret_access(secret_ref, "env:plain")
             return SecretValue(value, "env:plain", secret_ref)
 
@@ -144,6 +149,7 @@ class EnvVarSecretSource(SecretSource):
         if file_key in os.environ:
             # TODO: what if file_path is empty or does not exist?
             file_path = Path(os.environ[file_key])
+            logger.info(f"Retrieved secret from environment (file): {secret_ref}")
             data = file_path.read_bytes()
             # _decrypt_if_needed relies on the EncryptionProvider that was specified when this instance was created
             data = self._decrypt_if_needed(data, secret_ref)
@@ -154,6 +160,7 @@ class EnvVarSecretSource(SecretSource):
         base64_key = f"{env_key}__BASE64"
         if base64_key in os.environ:
             data = base64.b64decode(os.environ[base64_key])
+            logger.info(f"Retrieved secret from environment (base64): {secret_ref}")
             self.audit.log_secret_access(secret_ref, "env:base64")
             return SecretValue(data, "env:base64", secret_ref)
 
@@ -162,9 +169,11 @@ class EnvVarSecretSource(SecretSource):
         if enc_key in os.environ:
             encrypted = base64.b64decode(os.environ[enc_key])
             data = self._decrypt_if_needed(encrypted, secret_ref)
+            logger.info(f"Retrieved secret from environment (encrypted): {secret_ref}")
             self.audit.log_secret_access(secret_ref, "env:encrypted")
             return SecretValue(data, "env:encrypted", secret_ref, is_encrypted=True)
 
+        logger.error(f"Secret not found in environment: {secret_ref}")
         raise KeyError(f"Secret not found in environment: {secret_ref} {enc_key}")
 
 
@@ -204,6 +213,7 @@ class FileSecretSource(SecretSource):
         # Try encrypted file first
         enc_file = self.secrets_dir / f"{secret_ref}.enc"
         if enc_file.exists():
+            logger.info(f"Retrieved secret from file (encrypted): {secret_ref}")
             encrypted = enc_file.read_bytes()
             data = self._decrypt_if_needed(encrypted, secret_ref)
             self.audit.log_secret_access(secret_ref, "file:encrypted")
@@ -212,10 +222,12 @@ class FileSecretSource(SecretSource):
         # Try plain file
         plain_file = self.secrets_dir / secret_ref
         if plain_file.exists():
+            logger.info(f"Retrieved secret from file (plain): {secret_ref}")
             data = plain_file.read_bytes()
             self.audit.log_secret_access(secret_ref, "file:plain")
             return SecretValue(data, "file:plain", secret_ref)
 
+        logger.error(f"Secret file not found: {secret_ref}")
         raise FileNotFoundError(
             f"Secret file not found: {secret_ref} "
             f"(tried {enc_file} and {plain_file})"

@@ -10,6 +10,10 @@ Tests context-based secret selection for different scenarios.
 
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from cpu.config.secrets_context import SecretContext
 
 
@@ -247,3 +251,62 @@ class TestSecretContext:
 
         # Pattern has field that doesn't exist in SecretContext
         assert not context.matches({"nonexistent_field": "value"})
+
+
+class TestSecretContextLogging:
+    """Test logging functionality in SecretContext."""
+
+    def test_matches_logs_pattern_check_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test matches() logs pattern comparison at DEBUG level without values."""
+        caplog.set_level(logging.DEBUG)
+
+        context = SecretContext(platform="github", organization="EESSI")
+        pattern = {"platform": "github", "organization": "EESSI"}
+
+        result = context.matches(pattern)
+
+        assert result is True
+        assert "Pattern match" in caplog.text
+        assert "platform" in caplog.text
+        assert "organization" in caplog.text
+        # verify that values are NOT in the log
+        assert "github" not in caplog.text
+        assert "EESSI" not in caplog.text
+
+    def test_matches_logs_mismatch_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test matches() logs pattern mismatch at DEBUG level without values."""
+        caplog.set_level(logging.DEBUG)
+
+        context = SecretContext(platform="github", organization="EESSI")
+        pattern = {"platform": "gitlab"}
+
+        result = context.matches(pattern)
+
+        assert result is False
+        assert "Pattern match failed" in caplog.text or "mismatch" in caplog.text.lower()
+        assert "platform" in caplog.text
+        # verify that values are NOT in the log
+        assert "github" not in caplog.text
+        assert "gitlab" not in caplog.text
+
+    def test_matches_logs_keys_only_not_values(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test that matches() only logs keys, never actual values."""
+        caplog.set_level(logging.DEBUG)
+
+        context = SecretContext(
+            platform="github",
+            organization="SecretOrg",
+            repository="secret-repo",
+            environment="production"
+        )
+        pattern = {"platform": "github", "organization": "SecretOrg"}
+
+        context.matches(pattern)
+
+        # should log keys
+        assert "platform" in caplog.text or "organization" in caplog.text
+        # verify that values are NOT in the log
+        assert "github" not in caplog.text
+        assert "SecretOrg" not in caplog.text
+        assert "secret-repo" not in caplog.text
+        assert "production" not in caplog.text

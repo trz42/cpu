@@ -14,11 +14,14 @@ This module provides the Orchestrator class which manages:
 
 from __future__ import annotations
 
+import logging
 import signal
 import threading
 from typing import Any
 
 from cpu.components.base import ComponentInterface, ComponentState, HealthStatus
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
@@ -37,6 +40,7 @@ class Orchestrator:
         self._components: dict[str, ComponentInterface] = {}
         self._shutdown_requested = False
         self._threads: dict[str, threading.Thread] = {}
+        logger.info("Initialized Orchestrator")
 
     def register(self, component: ComponentInterface) -> None:
         """
@@ -52,6 +56,7 @@ class Orchestrator:
             raise ValueError(f"Component {component.name} already registered")
 
         self._components[component.name] = component
+        logger.info(f"Registered component: {component.name}")
 
     def get_component(self, name: str) -> ComponentInterface | None:
         """
@@ -72,11 +77,13 @@ class Orchestrator:
         Raises:
             RuntimeError: If any component initialization fails or is running
         """
+        logger.info("Initializing all components")
         for name in self._components:
             self.initialize_component(name)
 
     def start_all(self) -> None:
         """Start all components in separate threads."""
+        logger.info("Starting all components")
         for name in self._components:
             self.start_component(name)
 
@@ -87,6 +94,7 @@ class Orchestrator:
         Args:
             timeout: Maximum time to wait for all components to stop
         """
+        logger.info("Stopping all components")
         for name in self._components:
             self.stop_component(name, timeout=timeout)
 
@@ -188,10 +196,13 @@ class Orchestrator:
         Returns:
             Dict mapping component names to health status
         """
-        return {
-            name: component.health_check()
-            for name, component in self._components.items()
-        }
+        statuses = {}
+        for name, component in self._components.items():
+            status = component.health_check()
+            statuses[name] = status
+            logger.debug(f"Health check for component {name}: {status.value.upper()}")
+
+        return statuses
 
     def is_healthy(self) -> bool:
         """

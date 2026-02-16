@@ -10,6 +10,7 @@ Tests configuration loading from YAML files with environment variable overrides.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -791,3 +792,130 @@ bot:
             pytest.raises(ConfigError, match="Unexpected error loading"),
         ):
             config.load()
+
+
+class TestConfigLogging:
+    """Test logging functionality in Config."""
+
+    def test_config_load_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test config loading logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        assert "Loading configuration from" in caplog.text
+        assert str(config_file) in caplog.text
+        assert "Successfully loaded configuration" in caplog.text
+
+    def test_config_env_override_logs_at_debug(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test environment override logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        monkeypatch.setenv("CPU_BOT__NUM_WORKERS", "8")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        assert "Environment override" in caplog.text
+        assert "bot.num_workers" in caplog.text
+
+    def test_config_get_nonexistent_logs_at_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test getting nonexistent key logs at DEBUG level."""
+        caplog.set_level(logging.DEBUG)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        caplog.clear()
+        result = config.get("nonexistent.key", default=42)
+
+        assert result == 42
+        assert "Configuration key not found" in caplog.text
+        assert "nonexistent.key" in caplog.text
+
+    def test_config_validation_success_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test successful validation logs at INFO level."""
+        caplog.set_level(logging.INFO)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        caplog.clear()
+        config.validate(["bot.num_workers"])
+
+        assert "Configuration validation passed" in caplog.text
+
+    def test_config_validation_failure_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test validation failure logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 4
+""")
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        with pytest.raises(ConfigValidationError):
+            config.validate(["bot.missing_key"])
+
+        assert "Configuration validation failed" in caplog.text
+        assert "bot.missing_key" in caplog.text
+
+    def test_config_load_file_not_found_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test file not found logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        config_file = tmp_path / "nonexistent.yaml"
+        config = Config(config_file=config_file)
+
+        with pytest.raises(FileNotFoundError):
+            config.load()
+
+        assert "Configuration file not found" in caplog.text
+
+    def test_config_load_parse_error_logs_at_error(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Test YAML parse error logs at ERROR level."""
+        caplog.set_level(logging.ERROR)
+
+        config_file = tmp_path / "invalid.yaml"
+        config_file.write_text("invalid: yaml: content:")
+
+        config = Config(config_file=config_file)
+
+        with pytest.raises(ConfigError):
+            config.load()
+
+        assert "Failed to parse configuration" in caplog.text

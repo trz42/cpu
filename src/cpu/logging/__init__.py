@@ -5,3 +5,7 @@ CPU - The next-generation EESSI build-and-deploy bot.
 
 Logging package.
 """
+
+from cpu.logging.setup import TRACE
+
+__all__ = ["TRACE"]

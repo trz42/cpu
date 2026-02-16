@@ -14,7 +14,11 @@ Defines the context for selecting appropriate secrets based on:
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -87,12 +91,25 @@ class SecretContext:
             >>> context.matches({})  # Empty pattern always matches
             True
         """
+        # log pattern check with field names only (never values)
+        pattern_keys = list(pattern.keys())
+        logger.debug(f"Pattern match check: fields={pattern_keys}")
+
         for key, value in pattern.items():
             # Get the corresponding field from context
             context_value = getattr(self, key, None)
 
             # If pattern value doesn't match context value, no match
             if context_value != value:
+                # log mismatch with hashed values (not actual values)
+                pattern_hash = hashlib.sha256(str(value).encode()).hexdigest()[:8]
+                context_hash = hashlib.sha256(str(context_value).encode()).hexdigest()[:8] if context_value else "none"
+                logger.debug(
+                    f"Pattern match failed on field '{key}': "
+                    f"pattern_hash={pattern_hash} != context_hash={context_hash}"
+                )
                 return False
+
+        logger.debug(f"Pattern match succeeded: {len(pattern_keys)} fields matched")
 
         return True
