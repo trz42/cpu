@@ -46,6 +46,7 @@ CPU uses Python's standard logging module with a custom `TRACE` level for compre
 ## Configuration
 
 ### Basic Configuration
+
 ```yaml
 bot:
   logging:
@@ -57,6 +58,7 @@ bot:
 ```
 
 ### Per-Module Log Levels
+
 ```yaml
 bot:
   logging:
@@ -71,6 +73,7 @@ bot:
 ### Development vs Production
 
 **Development:**
+
 ```yaml
 bot:
   logging:
@@ -80,6 +83,7 @@ bot:
 ```
 
 **Production:**
+
 ```yaml
 bot:
   logging:
@@ -90,6 +94,7 @@ bot:
 ## Using the trace_calls Decorator
 
 ### Basic Usage
+
 ```python
 from cpu.logging.decorators import trace_calls
 from cpu.logging.setup import TRACE
@@ -119,16 +124,19 @@ def process_webhook(webhook_data: dict) -> None:
 ### DO
 
 ✅ Use structured logging with context
+
 ```python
 logger.info(f"Processing message {msg.id} from {msg.source}")
 ```
 
 ✅ Log state transitions
+
 ```python
 logger.info(f"Component state: {old_state} → {new_state}")
 ```
 
 ✅ Include error context
+
 ```python
 logger.error(f"Failed to connect to {host}:{port}: {err}")
 ```
@@ -136,6 +144,7 @@ logger.error(f"Failed to connect to {host}:{port}: {err}")
 ### DON'T
 
 ❌ Log sensitive data
+
 ```python
 # BAD
 logger.debug(f"Token: {api_token}")
@@ -145,6 +154,7 @@ logger.debug("Token authentication successful")
 ```
 
 ❌ Log in tight loops
+
 ```python
 # BAD
 for item in large_list:
@@ -155,6 +165,7 @@ logger.debug(f"Processing {len(large_list)} items")
 ```
 
 ❌ Use print statements
+
 ```python
 # BAD
 print("Starting process")
@@ -168,18 +179,21 @@ logger.info("Starting process")
 ### Finding Issues
 
 1. **Enable DEBUG for specific module:**
+
 ```yaml
    loggers:
      cpu.messaging.queue_thread: DEBUG
 ```
 
 2. **Enable TRACE for deep debugging:**
+
 ```yaml
    loggers:
      cpu.components.orchestrator: TRACE
 ```
 
 3. **Check log files:**
+
 ```bash
    tail -f logs/cpu.log
    grep ERROR logs/cpu.log
@@ -188,16 +202,19 @@ logger.info("Starting process")
 ### Common Patterns
 
 **Component won't start:**
+
 ```bash
 grep "component_name" logs/cpu.log | grep -E "(ERROR|CRITICAL)"
 ```
 
 **Message not delivered:**
+
 ```bash
 grep "message_id" logs/cpu.log | grep -E "(WARNING|ERROR)"
 ```
 
 **Performance issues:**
+
 ```bash
 # Enable TRACE and look for slow operations
 grep "TRACE" logs/cpu.log | grep -E "took|duration"

@@ -226,6 +226,7 @@ CPU uses Python's built-in logging with a custom `TRACE` level for detailed debu
 ### Configuration
 
 Configure logging in `config.yaml`:
+
 ```yaml
 bot:
   logging:
