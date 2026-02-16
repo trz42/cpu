@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased] - 2026-02-xx
+## [0.0.8] - 2026-02-16
 
 ### Added
 
@@ -15,6 +15,7 @@
 - Updated all components to use structured logging
 - Enhanced error messages with context
 - Improved debugging capabilities with TRACE level
+- Increased coverage for unit tests
 
 ### Fixed
 
