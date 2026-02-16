@@ -3,7 +3,7 @@
 """
 CPU - The next-generation EESSI build-and-deploy bot.
 
-Integration tests for logging accross components.
+Integration tests for logging across components.
 """
 
 from __future__ import annotations
