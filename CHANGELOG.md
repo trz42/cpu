@@ -1,5 +1,25 @@
 # Changelog
 
+## [unreleased] - 2026-02-xx
+
+### Added
+
+- Custom TRACE log level (level 5) for detailed debugging
+- Comprehensive logging across all modules
+- `@trace_calls` decorator for function entry/exit logging
+- Per-module log level configuration
+- Log sanitization for sensitive data
+
+### Changed
+
+- Updated all components to use structured logging
+- Enhanced error messages with context
+- Improved debugging capabilities with TRACE level
+
+### Fixed
+
+- none
+
 ## [0.0.7] - 2026-01-15
 
 ### Added
