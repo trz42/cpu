@@ -224,3 +224,58 @@ class TestLoggingComponent:
 
             # flush should not be called
             mock_flush.assert_not_called()
+
+    def test_metadata_preserved_in_log_output(self, tmp_path: Path) -> None:
+        """Test original logger name, function, and line number appear in log."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={
+                "file": str(log_file),
+                "level": "DEBUG",
+                "format": "%(name)s:%(funcName)s:%(lineno)d %(message)s",
+            },
+        )
+        component.initialize()
+
+        msg = Message(
+            type=MessageType.LOG,
+            payload={
+                "level": logging.INFO,
+                "message": "With metadata",
+                "name": "cpu.event_handler",
+                "funcName": "handle_webhook",
+                "lineno": 42,
+            },
+        )
+        queue.put(msg)
+        component.process_iteration()
+        component.flush()
+
+        content = log_file.read_text()
+        assert "cpu.event_handler:handle_webhook:42 With metadata" in content
+
+    def test_level_filtering_respected(self, tmp_path: Path) -> None:
+        """Test messages below configured level are not written."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "INFO"},
+        )
+        component.initialize()
+
+        msg = Message(
+            type=MessageType.LOG,
+            payload={"level": logging.DEBUG, "message": "Too detailed"},
+        )
+        queue.put(msg)
+        component.process_iteration()
+        component.flush()
+
+        assert "Too detailed" not in log_file.read_text()

@@ -78,13 +78,26 @@ class LoggingComponent(RunnableComponent):
             # extract log info
             level = msg.payload.get("level", logging.INFO)
             message = msg.payload.get("message", "")
+            name = msg.payload.get("name", "cpu")
+            func = msg.payload.get("funcName", "")
+            lineno = msg.payload.get("lineno", 0)
 
             # sanitize message
             sanitized = self._sanitizer.sanitize(message)
 
-            # write to log
-            if self._logger:
-                self._logger.log(level, sanitized)
+            # write to log, preserving original metadata
+            if self._logger and self._logger.isEnabledFor(level):
+                record = logging.LogRecord(
+                    name=name,
+                    level=level,
+                    pathname="",
+                    lineno=lineno,
+                    msg=sanitized,
+                    args=(),
+                    exc_info=None,
+                    func=func,
+                )
+                self._logger.handle(record)
 
         except QueueEmptyError:
             # no messages, continue
