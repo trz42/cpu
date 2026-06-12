@@ -39,10 +39,10 @@ class LoggingComponent(RunnableComponent):
         # setup flush handler for flush
         self.setup_flush_signal()
 
-        log_file = self.config.get("bot.logging.file", "logs/cpu.log")
-        log_level = self.config.get("bot.logging.level", "INFO")
+        log_file = self.config.get("file", "logs/cpu.log")
+        log_level = self.config.get("level", "INFO")
         log_format = self.config.get(
-            "bot.logging.format",
+            "format",
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
 
