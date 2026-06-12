@@ -8,8 +8,31 @@ Configuration of tests.
 
 import logging
 from collections.abc import Generator
+from pathlib import Path
+from typing import Any
 
 import pytest
+
+from cpu.logging.component import LoggingComponent
+from cpu.messaging.message import Message
+from cpu.messaging.queue_thread import ThreadMessageQueue
+
+
+@pytest.fixture
+def logging_component(
+    tmp_path: Path,
+) -> tuple[LoggingComponent, ThreadMessageQueue[Message], Path]:
+    """Create a LoggingComponent with queue for testing."""
+    log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+    log_file = tmp_path / "test.log"
+    config: dict[str, Any] = {
+        "bot.logging.file": str(log_file),
+        "bot.logging.level": "DEBUG",
+        "bot.logging.format": "%(levelname)s %(name)s %(message)s",
+    }
+    component = LoggingComponent(name="logger", log_queue=log_queue, config=config)
+    component.initialize()
+    return component, log_queue, log_file
 
 
 @pytest.fixture(autouse=True)
