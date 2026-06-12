@@ -11,6 +11,7 @@ LoggingComponent via a message queue.
 from __future__ import annotations
 
 import logging
+import threading
 
 from cpu.messaging.interfaces import MessageQueueInterface, QueueFullError
 from cpu.messaging.message import Message, MessageType
@@ -52,6 +53,7 @@ class QueueLoggingHandler(logging.Handler):
         super().__init__()
         self._queue = queue
         self._source = source_component
+        self._emitting = threading.local()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
@@ -60,9 +62,19 @@ class QueueLoggingHandler(logging.Handler):
         Converts the LogRecord to a Message with type LOG and sends
         it to the queue for processing by LoggingComponent.
 
+        Log calls made by the messaging infrastructure itself while
+        emitting (e.g. Message creation logs at DEBUG, queue.put logs
+        at TRACE) are dropped to prevent infinite recursion.
+
         Args:
             record: LogRecord to process
         """
+        # re-entry guard: creating/queueing the Message below triggers
+        # log calls on cpu.messaging.* loggers, which land in this same
+        # handler and would recurse forever
+        if getattr(self._emitting, "active", False):
+            return
+        self._emitting.active = True
         try:
             # format the message using configured formatter
             message_text = self.format(record)
@@ -92,3 +104,5 @@ class QueueLoggingHandler(logging.Handler):
             # CRITICAL: don't raise exceptions from logging
             # this would break the component using the logger
             self.handleError(record)
+        finally:
+            self._emitting.active = False

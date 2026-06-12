@@ -14,6 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from cpu.config.config import Config
+from cpu.logging.queue_handler import QueueLoggingHandler
+from cpu.messaging.interfaces import MessageQueueInterface
+from cpu.messaging.message import Message
 
 # define TRACE level (below DEBUG)
 TRACE = 5
@@ -103,3 +106,36 @@ def configure_logging(config: Config) -> None:
             logger.setLevel(TRACE)
         else:
             logger.setLevel(getattr(logging, logger_level.upper()))
+
+
+def configure_queue_logging(
+    log_queue: MessageQueueInterface[Message],
+    source_component: str = "cpu",
+    level: int = logging.INFO,
+) -> None:
+    """
+    Configure queue-based logging for the cpu package.
+
+    Replaces all handlers on the "cpu" logger with a QueueLoggingHandler,
+    so every log call from cpu.* modules is sent to the LoggingComponent
+    via the message queue instead of being written directly.
+
+    Args:
+        log_queue: Queue to send log messages to
+        source_component: Name attached as message source
+        level: Minimum log level to send to the queue
+    """
+    cpu_logger = logging.getLogger("cpu")
+
+    # remove any existing handlers to avoid duplicate log paths
+    cpu_logger.handlers.clear()
+
+    # add queue handler
+    queue_handler = QueueLoggingHandler(log_queue, source_component)
+    queue_handler.setLevel(level)
+    cpu_logger.addHandler(queue_handler)
+
+    cpu_logger.setLevel(level)
+
+    # don't propagate to root logger (would bypass the queue)
+    cpu_logger.propagate = False
