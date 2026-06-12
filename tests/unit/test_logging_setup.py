@@ -14,7 +14,10 @@ from pathlib import Path
 import pytest
 
 from cpu.config.config import Config
-from cpu.logging.setup import TRACE, configure_logging
+from cpu.logging.queue_handler import QueueLoggingHandler
+from cpu.logging.setup import TRACE, configure_logging, configure_queue_logging
+from cpu.messaging.message import Message, MessageType
+from cpu.messaging.queue_thread import ThreadMessageQueue
 
 
 class TestTraceLevel:
@@ -183,3 +186,92 @@ bot:
 
         root_logger = logging.getLogger()
         assert root_logger.level == TRACE
+
+
+class TestConfigureQueueLogging:
+    """Test queue-based logging configuration."""
+
+    def test_cpu_logger_gets_queue_handler(self) -> None:
+        """Test the cpu logger is configured with a QueueLoggingHandler."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue)
+
+        cpu_logger = logging.getLogger("cpu")
+        assert len(cpu_logger.handlers) == 1
+        assert isinstance(cpu_logger.handlers[0], QueueLoggingHandler)
+
+    def test_log_message_lands_in_queue(self) -> None:
+        """Test a log call on a cpu.* logger ends up in the queue."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue)
+
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Hello queue")
+
+        msg = log_queue.get(timeout=1)
+        assert msg.type == MessageType.LOG
+        assert "Hello queue" in msg.payload["message"]
+        assert msg.payload["name"] == "cpu.some.module"
+
+    def test_existing_handlers_replaced(self) -> None:
+        """Test previously configured handlers are removed."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        cpu_logger = logging.getLogger("cpu")
+        cpu_logger.addHandler(logging.NullHandler())
+        cpu_logger.addHandler(logging.NullHandler())
+
+        configure_queue_logging(log_queue)
+
+        assert len(cpu_logger.handlers) == 1
+        assert isinstance(cpu_logger.handlers[0], QueueLoggingHandler)
+
+    def test_no_propagation_to_root(self) -> None:
+        """Test cpu logger does not propagate to root logger."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue)
+
+        cpu_logger = logging.getLogger("cpu")
+        assert cpu_logger.propagate is False
+
+    def test_level_respected(self) -> None:
+        """Test messages below the configured level are not queued."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue, level=logging.WARNING)
+
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Filtered out")
+        logger.warning("Passes through")
+
+        msg = log_queue.get(timeout=1)
+        assert "Passes through" in msg.payload["message"]
+        assert log_queue.empty()
+
+    def test_trace_level_supported(self) -> None:
+        """Test TRACE level messages flow through when configured."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue, level=TRACE)
+
+        logger = logging.getLogger("cpu.some.module")
+        logger.log(TRACE, "Trace through queue")
+
+        msg = log_queue.get(timeout=1)
+        assert msg.payload["level"] == TRACE
+        assert "Trace through queue" in msg.payload["message"]
+
+    def test_source_component_set(self) -> None:
+        """Test the source component name is attached to messages."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue, source_component="event_handler")
+
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Tagged message")
+
+        msg = log_queue.get(timeout=1)
+        assert msg.source == "event_handler"
