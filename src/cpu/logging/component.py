@@ -39,10 +39,10 @@ class LoggingComponent(RunnableComponent):
         # setup flush handler for flush
         self.setup_flush_signal()
 
-        log_file = self.config.get("bot.logging.file", "logs/cpu.log")
-        log_level = self.config.get("bot.logging.level", "INFO")
+        log_file = self.config.get("file", "logs/cpu.log")
+        log_level = self.config.get("level", "INFO")
         log_format = self.config.get(
-            "bot.logging.format",
+            "format",
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
 
@@ -78,13 +78,26 @@ class LoggingComponent(RunnableComponent):
             # extract log info
             level = msg.payload.get("level", logging.INFO)
             message = msg.payload.get("message", "")
+            name = msg.payload.get("name", "cpu")
+            func = msg.payload.get("funcName", "")
+            lineno = msg.payload.get("lineno", 0)
 
             # sanitize message
             sanitized = self._sanitizer.sanitize(message)
 
-            # write to log
-            if self._logger:
-                self._logger.log(level, sanitized)
+            # write to log, preserving original metadata
+            if self._logger and self._logger.isEnabledFor(level):
+                record = logging.LogRecord(
+                    name=name,
+                    level=level,
+                    pathname="",
+                    lineno=lineno,
+                    msg=sanitized,
+                    args=(),
+                    exc_info=None,
+                    func=func,
+                )
+                self._logger.handle(record)
 
         except QueueEmptyError:
             # no messages, continue
