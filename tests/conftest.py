@@ -26,9 +26,9 @@ def logging_component(
     log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
     log_file = tmp_path / "test.log"
     config: dict[str, Any] = {
-        "bot.logging.file": str(log_file),
-        "bot.logging.level": "DEBUG",
-        "bot.logging.format": "%(levelname)s %(name)s %(message)s",
+        "file": str(log_file),
+        "level": "DEBUG",
+        "format": "%(levelname)s %(name)s %(message)s",
     }
     component = LoggingComponent(name="logger", log_queue=log_queue, config=config)
     component.initialize()

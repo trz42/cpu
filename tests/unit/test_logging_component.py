@@ -29,7 +29,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -56,7 +56,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -81,7 +81,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -106,7 +106,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -123,7 +123,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -144,7 +144,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -162,7 +162,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -182,7 +182,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         # don't initialize
 
@@ -196,7 +196,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         # don't initialize (no handler)
 
@@ -214,7 +214,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
