@@ -217,6 +217,8 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
                 else:
                     time.sleep(self.retry_delay)
 
+        return False  # pragma: no cover
+
     def receive(
         self, queue: MessageQueueInterface[T], timeout: float | None = None
     ) -> T | None:
@@ -374,6 +376,8 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
                     time.sleep(sleep_time)
                 else:
                     time.sleep(self.retry_delay)
+
+        return False  # pragma: no cover
 
     def receive(
         self, queue: MessageQueueInterface[T], timeout: float | None = None
