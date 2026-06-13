@@ -358,3 +358,58 @@ class TestRotationLogging:
             with gzip.open(backup, 'rb') as file:
                 content = file.read()
                 assert len(content) == 0  # empty compressed file
+
+    def test_rollover_logs_error_removing_existing_destination(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test doRollover logs error when removing existing .1.gz before compression fails."""
+        caplog.set_level(logging.ERROR)
+
+        log_file = tmp_path / "test.log"
+        log_file.write_text("current log data")
+
+        existing_backup = tmp_path / "test.log.1.gz"
+        with gzip.open(existing_backup, "wb") as f:
+            f.write(b"old backup")
+
+        handler = CompressingRotatingFileHandler(
+            filename=str(log_file),
+            maxBytes=100,
+            backupCount=1,  # loop range(0,0,-1) is empty, so .1.gz is not renamed away
+        )
+
+        import os
+        real_remove = os.remove
+        call_count = 0
+
+        def fail_first_remove(path: str) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise OSError("Permission denied")
+            real_remove(path)
+
+        with patch("os.remove", side_effect=fail_first_remove):
+            handler.doRollover()
+
+        assert "Failed to remove file during rotation" in caplog.text
+
+    def test_rollover_skips_compression_when_base_file_absent(self, tmp_path: Path) -> None:
+        """Test doRollover with delay=True and no base log file skips compression."""
+        log_file = tmp_path / "test.log"
+        # deliberately do NOT create the file
+
+        handler = CompressingRotatingFileHandler(
+            filename=str(log_file),
+            maxBytes=100,
+            backupCount=3,
+            delay=True,
+        )
+
+        # should not raise even though base file doesn't exist
+        handler.doRollover()
+
+        # no backup should be created since there was nothing to compress
+        assert not (tmp_path / "test.log.1.gz").exists()
+        # stream should remain None because delay=True
+        assert handler.stream is None
