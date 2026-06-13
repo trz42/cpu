@@ -279,3 +279,17 @@ class TestLoggingComponent:
         component.flush()
 
         assert "Too detailed" not in log_file.read_text()
+
+    def test_logger_does_not_propagate(self, tmp_path: Path) -> None:
+        """Test internal logger has propagation disabled to prevent feedback loop."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "DEBUG"},
+        )
+        component.initialize()
+
+        assert logging.getLogger("cpu.logging").propagate is False
