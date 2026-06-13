@@ -12,9 +12,33 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Generator
+from contextlib import contextmanager
 
 from cpu.messaging.interfaces import MessageQueueInterface, QueueFullError
 from cpu.messaging.message import Message, MessageType
+
+# thead-local suppression state, shared by all handler instance
+_thread_state = threading.local()
+
+
+@contextmanager
+def suppress_queue_logging() -> Generator[None, None, None]:
+    """
+    Suppress queue-based logging in the current thread.
+
+    Log calls made inside this context are dropped by all
+    QueueLoggingHandler instances. Used by the LoggingComponent around
+    its own queue operations to prevent a feedback loop: each
+    queue.get() would otherwise log a TRACE message that lands back in
+    the very queue being drained.
+    """
+    previous = getattr(_thread_state, "suppressed", False)
+    _thread_state.suppressed = True
+    try:
+        yield
+    finally:
+        _thread_state.suppressed = previous
 
 
 class QueueLoggingHandler(logging.Handler):
@@ -71,8 +95,9 @@ class QueueLoggingHandler(logging.Handler):
         """
         # re-entry guard: creating/queueing the Message below triggers
         # log calls on cpu.messaging.* loggers, which land in this same
-        # handler and would recurse forever
-        if getattr(self._emitting, "active", False):
+        # handler and would recurse forever; also honor explicit
+        # per-thread suppression (see suppress_queue_logging)
+        if getattr(self._emitting, "active", False) or getattr(_thread_state, "suppressed", False):
             return
         self._emitting.active = True
         try:
