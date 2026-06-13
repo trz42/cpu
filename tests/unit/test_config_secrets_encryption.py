@@ -169,6 +169,21 @@ class TestMasterPassphraseEncryption:
         assert encrypted != plaintext
         assert decrypted == plaintext
 
+    def test_decrypt_raises_on_unexpected_exception(self) -> None:
+        """Test decrypt wraps unexpected exceptions in DecryptionError."""
+        from unittest.mock import patch
+
+        from cryptography.fernet import Fernet
+
+        provider = MasterPassphraseEncryption(passphrase="test")
+        encrypted = provider.encrypt(b"plaintext")
+
+        with (
+            patch.object(Fernet, "decrypt", side_effect=ValueError("unexpected")),
+            pytest.raises(DecryptionError, match="Decryption failed")
+        ):
+            provider.decrypt(encrypted)
+
 
 class TestEncryptionConfig:
     """Test EncryptionConfig."""
