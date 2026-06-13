@@ -3,8 +3,9 @@
 """Tests for QueueLoggingHandler."""
 
 import logging
+import threading
 
-from cpu.logging.queue_handler import QueueLoggingHandler
+from cpu.logging.queue_handler import QueueLoggingHandler, suppress_queue_logging
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
@@ -167,4 +168,71 @@ class TestQueueLoggingHandler:
         assert "Should appear" in msg.payload["message"]
 
         # queue should be empty
+        assert queue.empty()
+
+    def test_suppression_drops_messages(self) -> None:
+        """Test log calls inside suppression context are not queued."""
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        handler = QueueLoggingHandler(queue, "test")
+
+        logger = logging.getLogger("test.suppress")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+        with suppress_queue_logging():
+            logger.info("Suppressed message")
+
+        logger.info("Normal message")
+
+        msg = queue.get(timeout=1)
+        assert "Normal message" in msg.payload["message"]
+        assert queue.empty()
+
+    def test_suppression_is_per_thread(self) -> None:
+        """Test suppression in one thread does not affect another."""
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        handler = QueueLoggingHandler(queue, "test")
+
+        logger = logging.getLogger("test.suppress.thread")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+        entered = threading.Event()
+        release = threading.Event()
+
+        def worker() -> None:
+            with suppress_queue_logging():
+                entered.set()
+                release.wait(timeout=2)
+
+        thread = threading.Thread(target=worker)
+        thread.start()
+        entered.wait(timeout=2)
+
+        # other thread is suppressed, this one is not
+        logger.info("From main thread")
+
+        release.set()
+        thread.join(timeout=2)
+
+        msg = queue.get(timeout=1)
+        assert "From main thread" in msg.payload["message"]
+
+    def test_suppression_restored_after_context(self) -> None:
+        """Test suppression state is restored, including when nested."""
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        handler = QueueLoggingHandler(queue, "test")
+
+        logger = logging.getLogger("test.suppress.nested")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+        with suppress_queue_logging():
+            with suppress_queue_logging():
+                logger.info("Still suppressed")
+
+        logger.info("Back to normal")
+
+        msg = queue.get(timeout=1)
+        assert "Back to normal" in msg.payload["message"]
         assert queue.empty()
