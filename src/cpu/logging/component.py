@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from cpu.components.base import ComponentState, HealthStatus, RunnableComponent
+from cpu.logging.queue_handler import suppress_queue_logging
 from cpu.logging.sanitizer import LogSanitizer
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError
 from cpu.messaging.message import Message, MessageType
@@ -62,13 +63,19 @@ class LoggingComponent(RunnableComponent):
         self._logger = logging.getLogger("cpu.logging")
         self._logger.addHandler(self._file_handler)
         self._logger.setLevel(getattr(logging, log_level.upper()))
+        # must not propagate to cpu logger - that has the QueueLoggingHandler
+        # which would create a feedback loop on every write
+        self._logger.propagate = False
 
         self.state = ComponentState.INITIALIZED
 
     def process_iteration(self) -> None:
         """Process one log message from queue."""
         try:
-            msg = self._queue.get(timeout=0.1)
+            # suppress queue logging around our own queue operation to
+            # prevent a feedback loop (get() logs at TRACE level)
+            with suppress_queue_logging():
+                msg = self._queue.get(timeout=0.1)
 
             # verif message type
             if msg.type != MessageType.LOG:

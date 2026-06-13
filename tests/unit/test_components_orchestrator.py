@@ -473,3 +473,27 @@ class TestOrchestratorLogging:
 
         assert statuses["test_component"] == HealthStatus.HEALTHY
         assert "Health check for component test_component: HEALTHY" in caplog.text
+
+    def test_stop_all_reverse_registration_order(self) -> None:
+        """Test components are stopped in reverse registration order."""
+        orchestrator = Orchestrator()
+        stop_order: list[str] = []
+
+        class OrderTrackingComponent(MockRunnableComponent):
+            def stop(self, timeout: float | None = None) -> None:
+                stop_order.append(self.name)
+                super().stop(timeout=timeout)
+
+        first = OrderTrackingComponent(name="first")
+        second = OrderTrackingComponent(name="second")
+        third = OrderTrackingComponent(name="third")
+
+        orchestrator.register(first)
+        orchestrator.register(second)
+        orchestrator.register(third)
+        orchestrator.initialize_all()
+        orchestrator.start_all()
+
+        orchestrator.stop_all(timeout=2)
+
+        assert stop_order == ["third", "second", "first"]

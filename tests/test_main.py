@@ -782,7 +782,7 @@ bot:
         assert "Configuration validated successfully" in caplog.text
 
     def test_component_initialization_logs_at_info(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Test component initialization logs at INFO level."""
+        """Test startup logs before queue logging is active and reach caplog."""
         caplog.set_level(logging.INFO)
 
         config_file = tmp_path / "config.yaml"
@@ -801,7 +801,10 @@ bot:
 
             main()
 
-        assert "All components initialized" in caplog.text
+        # messages logged before create_orchestrator() switches to queue
+        # logging still reach caplog via basicConfig
+        assert "CPU Bot starting" in caplog.text
+        assert "Configuration validated" in caplog.text
 
     def test_shutdown_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test shutdown logs at INFO level."""
