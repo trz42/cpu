@@ -227,9 +227,11 @@ class TestQueueLoggingHandler:
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
 
-        with suppress_queue_logging():
-            with suppress_queue_logging():
-                logger.info("Still suppressed")
+        with (
+            suppress_queue_logging(),
+            suppress_queue_logging()
+        ):
+            logger.info("Still suppressed")
 
         logger.info("Back to normal")
 
