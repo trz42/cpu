@@ -152,6 +152,8 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
             max_retries: Maximum retry attempts (default: 3)
             retry_delay: Delay between retries in seconds (default: 1.0)
         """
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be >= 0, got {max_retries}")
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self._pending: set[str] = set()  # Track unacknowledged message IDs
@@ -214,8 +216,6 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
                     time.sleep(sleep_time)
                 else:
                     time.sleep(self.retry_delay)
-
-        return False
 
     def receive(
         self, queue: MessageQueueInterface[T], timeout: float | None = None
@@ -300,6 +300,8 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
             retry_delay: Delay between retries in seconds (default: 1.0)
             max_processed_ids: Max processed IDs to track before cleanup (default: 10000)
         """
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be >= 0, got {max_retries}")
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.max_processed_ids = max_processed_ids
@@ -372,8 +374,6 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
                     time.sleep(sleep_time)
                 else:
                     time.sleep(self.retry_delay)
-
-        return False
 
     def receive(
         self, queue: MessageQueueInterface[T], timeout: float | None = None

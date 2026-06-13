@@ -224,6 +224,16 @@ class TestAtLeastOnceDelivery:
         # Should not raise
         delivery.acknowledge(msg_dict)
 
+    def test_negative_max_retries_raises(self) -> None:
+        with pytest.raises(ValueError, match="max_retries must be >= 0"):
+            AtLeastOnceDelivery(max_retries=-1)
+
+    def test_receive_returns_none_on_empty_queue(self) -> None:
+        queue = Mock(spec=MessageQueueInterface)
+        queue.get.side_effect = QueueEmptyError("Empty")
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery()
+        assert delivery.receive(queue) is None
+
 
 class TestExactlyOnceDelivery:
     """Test ExactlyOnceDelivery implementation."""
@@ -427,6 +437,23 @@ class TestExactlyOnceDelivery:
         result2 = delivery.send(queue, msg)
         assert result2 is True
         assert msg.id in delivery._sent_ids
+
+    def test_negative_max_retries_raises(self) -> None:
+        with pytest.raises(ValueError, match="max_retries must be >= 0"):
+            ExactlyOnceDelivery(max_retries=-1)
+
+    def test_receive_returns_none_on_empty_queue(self) -> None:
+        queue = Mock(spec=MessageQueueInterface)
+        queue.get.side_effect = QueueEmptyError("Empty")
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery()
+        assert delivery.receive(queue) is None
+
+    def test_send_success_message_without_id(self) -> None:
+        queue = Mock(spec=MessageQueueInterface)
+        delivery: ExactlyOnceDelivery[dict[str, Any]] = ExactlyOnceDelivery()
+        result = delivery.send(queue, {"data": "test"})
+        assert result is True
+        assert len(delivery._sent_ids) == 0
 
 
 class TestAtMostOnceDeliveryLogging:
