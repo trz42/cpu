@@ -321,7 +321,7 @@ def main() -> int:
 
         # Phase 1: console-only logging during startup
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.WARNING,
             format="%(levelname)s: %(message)s",
         )
         logger.info("CPU Bot starting...")
