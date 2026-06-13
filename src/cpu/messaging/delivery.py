@@ -184,7 +184,7 @@ class AtLeastOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         start_time = time.time()
         attempts = 0
 
-        while attempts <= self.max_retries:
+        while attempts <= self.max_retries:  # pragma: no branch
             # Check total timeout
             if timeout is not None:
                 elapsed = time.time() - start_time
@@ -341,7 +341,7 @@ class ExactlyOnceDelivery(MessageDeliveryInterface[T], Generic[T]):
         start_time = time.time()
         attempts = 0
 
-        while attempts <= self.max_retries:
+        while attempts <= self.max_retries:  # pragma: no branch
             if timeout is not None:
                 elapsed = time.time() - start_time
                 if elapsed >= timeout:

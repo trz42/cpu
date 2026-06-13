@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -233,6 +233,19 @@ class TestAtLeastOnceDelivery:
         queue.get.side_effect = QueueEmptyError("Empty")
         delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery()
         assert delivery.receive(queue) is None
+
+    def test_send_returns_false_when_remaining_time_exhausted(self) -> None:
+        """Test return False when timeout expires between retry elapsed checks."""
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = QueueFullError("Full")
+        delivery: AtLeastOnceDelivery[Message] = AtLeastOnceDelivery(max_retries=3, retry_delay=1.0)
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        with patch("cpu.messaging.delivery.time") as mock_time:
+            mock_time.time.side_effect = [0.0, 0.0, 1.0]
+            result = delivery.send(queue, msg, timeout=0.5)
+
+        assert result is False
 
 
 class TestExactlyOnceDelivery:
@@ -454,6 +467,19 @@ class TestExactlyOnceDelivery:
         result = delivery.send(queue, {"data": "test"})
         assert result is True
         assert len(delivery._sent_ids) == 0
+
+    def test_send_returns_false_when_remaining_time_exhausted(self) -> None:
+        """Test return False when timeout expires between retry elapsed checks."""
+        queue = Mock(spec=MessageQueueInterface)
+        queue.put.side_effect = QueueFullError("Full")
+        delivery: ExactlyOnceDelivery[Message] = ExactlyOnceDelivery(max_retries=3, retry_delay=1.0)
+        msg = Message(type=MessageType.WEBHOOK, payload={})
+
+        with patch("cpu.messaging.delivery.time") as mock_time:
+            mock_time.time.side_effect = [0.0, 0.0, 1.0]
+            result = delivery.send(queue, msg, timeout=0.5)
+
+        assert result is False
 
 
 class TestAtMostOnceDeliveryLogging:
