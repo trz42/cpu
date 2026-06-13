@@ -63,6 +63,9 @@ class LoggingComponent(RunnableComponent):
         self._logger = logging.getLogger("cpu.logging")
         self._logger.addHandler(self._file_handler)
         self._logger.setLevel(getattr(logging, log_level.upper()))
+        # must not propagate to cpu logger - that has the QueueLoggingHandler
+        # which would create a feedback loop on every write
+        self._logger.propagate = False
 
         self.state = ComponentState.INITIALIZED
 
