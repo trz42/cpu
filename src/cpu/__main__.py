@@ -185,10 +185,10 @@ def print_banner(banner: str, config: Config | None = None) -> None:
     """
     # check if terminal effects are enabled in config
     enable_effects = False
-    effect_name = "Slide"
+    effect_name = "Beams"
     if config is not None:
         enable_effects = config.get("bot.banner_effects", False)
-        effect_name = config.get("bot.banner_effect_type", "Slide")
+        effect_name = config.get("bot.banner_effect_type", "Beams")
 
     # try to use terminal effects if enabled and available
     if enable_effects:
