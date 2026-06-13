@@ -203,6 +203,14 @@ class TestLoggingComponent:
         # should not raise
         component.stop()
 
+    def test_flush_before_initialize_is_noop(self) -> None:
+        """Test flush() does nothing if called before initialize()."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        component = LoggingComponent(name="logger", log_queue=log_queue)
+
+        # should not raise even though _file_handler is None
+        component.flush()
+
     def test_logging_component_flush_handler_ignores_other_signals(self, tmp_path: Path) -> None:
         """Test flush handler ignores non-SIGUSR1 signals."""
         import signal
