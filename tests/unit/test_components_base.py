@@ -171,6 +171,25 @@ class TestRunnableComponentClass:
 
         assert component.get_state() == ComponentState.FAILED
 
+    def test_finally_skips_stopped_when_state_already_failed(self) -> None:
+        """Test finally block doesn't overwrite FAILED state set during normal iteration."""
+        class SelfFailingComponent(RunnableComponent):
+            def initialize(self) -> None:
+                self.state = ComponentState.INITIALIZED
+
+            def process_iteration(self) -> None:
+                self.state = ComponentState.FAILED
+                self._stop_requested = True
+
+            def health_check(self) -> HealthStatus:
+                return HealthStatus.UNHEALTHY
+
+        component = SelfFailingComponent(name="test")
+        component.initialize()
+        component.start()
+
+        assert component.get_state() == ComponentState.FAILED
+
 
 class TestComponentBaseLogging:
     """Test logging added to base component classes."""
