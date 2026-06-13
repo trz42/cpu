@@ -21,7 +21,7 @@ from pathlib import Path
 from cpu.components.base import HealthStatus
 from cpu.logging.component import LoggingComponent
 from cpu.logging.queue_handler import QueueLoggingHandler
-from cpu.logging.setup import TRACE
+from cpu.logging.setup import TRACE, configure_queue_logging
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
@@ -218,3 +218,28 @@ class TestQueueLoggingIntegration:
         content = log_file.read_text()
         for i in range(10):
             assert f"Threaded message {i}" in content
+
+    def test_no_feedback_loop_at_trace_level(
+        self,
+        logging_component: tuple[LoggingComponent, ThreadMessageQueue[Message], Path],
+    ) -> None:
+        """Test the component's own queue operations don't generate log messages."""
+        component, log_queue, log_file = logging_component
+
+        # route all cpu.* logging into the same queue at TRACE level
+        configure_queue_logging(log_queue, level=TRACE)
+
+        thread = threading.Thread(target=component.start)
+        thread.start()
+
+        # without suppression, every queue.get would enqueue a new TRACE
+        # message, keeping the queue busy forever
+        time.sleep(0.3)
+
+        component.stop()
+        thread.join(timeout=2)
+        component.flush()
+
+        # queue must not have balloned with self-generated messages
+        assert log_queue.qsize() < 10
+        assert "Getting message from queue" not in log_file.read_text()
