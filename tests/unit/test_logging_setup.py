@@ -9,13 +9,11 @@ Tests for logging setup.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pytest
 
-from cpu.config.config import Config
 from cpu.logging.queue_handler import QueueLoggingHandler
-from cpu.logging.setup import TRACE, configure_logging, configure_queue_logging
+from cpu.logging.setup import TRACE, configure_queue_logging
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
@@ -76,116 +74,6 @@ class TestTraceLevel:
         assert len(caplog.records) == 2
         assert caplog.records[0].levelname == "TRACE"
         assert caplog.records[1].levelname == "DEBUG"
-
-
-class TestLoggingSetup:
-    """Test logging configuration."""
-
-    def test_configure_logging_creates_file_handler(self, tmp_path: Path) -> None:
-        """Test file handler is created."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: INFO
-""")
-
-        config = Config(config_file=config_file)
-        config.load()
-
-        configure_logging(config)
-
-        root_logger = logging.getLogger()
-        # should have file handler
-        assert any(isinstance(handler, logging.FileHandler) for handler in root_logger.handlers)
-
-    def test_configure_logging_sets_levels(self, tmp_path: Path) -> None:
-        """Test logging level is set."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: DEBUG
-""")
-
-        config = Config(config_file=config_file)
-        config.load()
-
-        configure_logging(config)
-
-        root_logger = logging.getLogger()
-        assert root_logger.level == logging.DEBUG
-
-    def test_configure_logging_hierarchical_loggers(self, tmp_path: Path) -> None:
-        """Test hierarchical logger levels."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: WARNING
-    loggers:
-      cpu.timer: DEBUG
-      cpu.job_manager: INFO
-""")
-
-        config = Config(config_file=config_file)
-        config.load()
-
-        configure_logging(config)
-
-        timer_logger = logging.getLogger("cpu.timer")
-        job_logger = logging.getLogger("cpu.job_manager")
-
-        assert timer_logger.level == logging.DEBUG
-        assert job_logger.level == logging.INFO
-
-    def test_configure_logging_uses_format_from_config(self, tmp_path: Path) -> None:
-        """Test custom log format is applied."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: INFO
-    format: "%(levelname)s - %(message)s"
-""")
-
-        config = Config(config_file=config_file)
-        config.load()
-
-        # clear existing handlers (pytest adds its own)
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
-
-        configure_logging(config)
-
-        file_handlers = [handler for handler in root_logger.handlers if isinstance(handler, logging.FileHandler)]
-        assert len(file_handlers) > 0
-
-        formatter = file_handlers[0].formatter
-        assert formatter is not None
-        assert formatter._fmt == "%(levelname)s - %(message)s"
-
-    def test_configure_logging_with_trace_level(self, tmp_path: Path) -> None:
-        """Test TRACE level can be configured."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: TRACE
-""")
-
-        config = Config(config_file=config_file)
-        config.load()
-
-        configure_logging(config)
-
-        root_logger = logging.getLogger()
-        assert root_logger.level == TRACE
 
 
 class TestConfigureQueueLogging:

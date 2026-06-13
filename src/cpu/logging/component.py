@@ -15,6 +15,7 @@ from typing import Any
 
 from cpu.components.base import ComponentState, HealthStatus, RunnableComponent
 from cpu.logging.queue_handler import suppress_queue_logging
+from cpu.logging.rotation import CompressingRotatingFileHandler
 from cpu.logging.sanitizer import LogSanitizer
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError
 from cpu.messaging.message import Message, MessageType
@@ -32,7 +33,7 @@ class LoggingComponent(RunnableComponent):
         super().__init__(name, config)
         self._queue = log_queue
         self._sanitizer = LogSanitizer()
-        self._file_handler: logging.FileHandler | None = None
+        self._file_handler: CompressingRotatingFileHandler | None = None
         self._logger: logging.Logger | None = None
 
     def initialize(self) -> None:
@@ -46,13 +47,19 @@ class LoggingComponent(RunnableComponent):
             "format",
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
+        max_bytes = self.config.get("max_bytes", 10 * 1024 * 1024)  # 10 MB
+        backup_count = self.config.get("backup_count", 5)
 
         # create log directory
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # create file handler
-        self._file_handler = logging.FileHandler(log_file)
+        # create rotating file handler with compression
+        self._file_handler = CompressingRotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+        )
         self._file_handler.setLevel(logging.DEBUG)
 
         # create formatter

@@ -293,3 +293,42 @@ class TestLoggingComponent:
         component.initialize()
 
         assert logging.getLogger("cpu.logging").propagate is False
+
+    def test_uses_compressing_rotating_file_handler(self, tmp_path: Path) -> None:
+        """Test LoggingComponent uses CompressingRotatingFileHandler."""
+        from cpu.logging.rotation import CompressingRotatingFileHandler
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "INFO"},
+        )
+        component.initialize()
+
+        assert isinstance(component._file_handler, CompressingRotatingFileHandler)
+
+    def test_rotation_config_applied(self, tmp_path: Path) -> None:
+        """Test max_bytes and backup_count are read from config."""
+        from cpu.logging.rotation import CompressingRotatingFileHandler
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={
+                "file": str(log_file),
+                "level": "INFO",
+                "max_bytes": 1024,
+                "backup_count": 3,
+            },
+        )
+        component.initialize()
+
+        assert isinstance(component._file_handler, CompressingRotatingFileHandler)
+        assert component._file_handler.maxBytes == 1024
+        assert component._file_handler.backupCount == 3

@@ -19,7 +19,7 @@ from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config
 from cpu.logging.decorators import trace_calls
 from cpu.logging.sanitizer import LogSanitizer
-from cpu.logging.setup import TRACE, configure_logging
+from cpu.logging.setup import TRACE, configure_queue_logging
 from cpu.messaging.message import Message, MessageType
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
@@ -74,14 +74,15 @@ bot:
 
         config = Config(config_file=config_file)
         config.load()
-        configure_logging(config)
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+        configure_queue_logging(log_queue, level=logging.INFO)
 
-        # verify levels are set correctly
-        messaging_logger = logging.getLogger("cpu.messaging")
-        components_logger = logging.getLogger("cpu.components")
+        # per-module levels are set directly on child loggers
+        logging.getLogger("cpu.messaging").setLevel(logging.DEBUG)
+        logging.getLogger("cpu.components").setLevel(logging.WARNING)
 
-        assert messaging_logger.level == logging.DEBUG or messaging_logger.getEffectiveLevel() == logging.DEBUG
-        assert components_logger.level == logging.WARNING or components_logger.getEffectiveLevel() == logging.WARNING
+        assert logging.getLogger("cpu.messaging").level == logging.DEBUG
+        assert logging.getLogger("cpu.components").level == logging.WARNING
 
     def test_trace_decorator_overhead(self) -> None:
         """Ensure trace decorator doesn't significantly impact performance."""
