@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.0.9] - 2026-06-13
+
+### Added
+
+- `QueueLoggingHandler`: custom logging handler that routes all `cpu.*`
+  log records through the message queue to `LoggingComponent`, enabling
+  async, non-blocking logging
+- `suppress_queue_logging()`: thread-local context manager to prevent
+  feedback loops when `LoggingComponent` drains its own queue
+- `configure_queue_logging()`: configures the `cpu` logger to use
+  `QueueLoggingHandler`, replacing direct file writes
+- Integration tests for the full logging chain (handler -> queue ->
+  `LoggingComponent` -> file)
+- `logging_component` pytest fixture in `conftest.py`
+
+### Changed
+
+- `LoggingComponent` is now the sole writer to the log file; all
+  `cpu.*` logging flows through the message queue
+- `LoggingComponent` uses `CompressingRotatingFileHandler` instead of
+  plain `FileHandler`, restoring log rotation with gzip compression
+- `LoggingComponent` preserves original log record metadata (logger
+  name, function name, line number) in file output
+- `__main__.py` uses two-phase logging: console-only during startup,
+  queue-based once `LoggingComponent` is registered
+- `Orchestrator.stop_all()` stops components in reverse registration
+  order, ensuring `LoggingComponent` stops last
+- Default banner effect changed from `Slide` to `Beams`
+- Console startup logging reduced to `WARNING` level
+
+### Fixed
+
+- `LoggingComponent` config keys aligned with sub-dict passed from
+  `__main__.py` (removed erroneous `bot.logging.` prefix)
+- Infinite feedback loop at TRACE level when `LoggingComponent`'s own
+  queue operations generated log records
+- Propagation disabled on `cpu.logging` logger to prevent write ->
+  propagate -> queue loop
+
+### Removed
+
+- `configure_logging()` from `setup.py` — replaced by
+  `configure_queue_logging()`
+
 ## [0.0.8] - 2026-02-16
 
 ### Added

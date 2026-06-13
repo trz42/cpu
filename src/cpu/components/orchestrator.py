@@ -91,11 +91,16 @@ class Orchestrator:
         """
         Stop all components gracefully.
 
+        Components are stopped in reverse registration order, so
+        components registered first (e.g. the logging component)
+        are stopped last and remain available during shutdown of
+        the others.
+
         Args:
             timeout: Maximum time to wait for all components to stop
         """
         logger.info("Stopping all components")
-        for name in self._components:
+        for name in reversed(self._components):
             self.stop_component(name, timeout=timeout)
 
     def initialize_component(self, name: str) -> None:

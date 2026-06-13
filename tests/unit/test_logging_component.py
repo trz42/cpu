@@ -29,7 +29,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -56,7 +56,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -81,7 +81,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -106,7 +106,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -123,7 +123,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -144,7 +144,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -162,7 +162,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -182,7 +182,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         # don't initialize
 
@@ -196,7 +196,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         # don't initialize (no handler)
 
@@ -214,7 +214,7 @@ class TestLoggingComponent:
         component = LoggingComponent(
             name="logger",
             log_queue=queue,
-            config={"bot.logging.file": str(log_file), "bot.logging.level": "INFO"},
+            config={"file": str(log_file), "level": "INFO"},
         )
         component.initialize()
 
@@ -224,3 +224,111 @@ class TestLoggingComponent:
 
             # flush should not be called
             mock_flush.assert_not_called()
+
+    def test_metadata_preserved_in_log_output(self, tmp_path: Path) -> None:
+        """Test original logger name, function, and line number appear in log."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={
+                "file": str(log_file),
+                "level": "DEBUG",
+                "format": "%(name)s:%(funcName)s:%(lineno)d %(message)s",
+            },
+        )
+        component.initialize()
+
+        msg = Message(
+            type=MessageType.LOG,
+            payload={
+                "level": logging.INFO,
+                "message": "With metadata",
+                "name": "cpu.event_handler",
+                "funcName": "handle_webhook",
+                "lineno": 42,
+            },
+        )
+        queue.put(msg)
+        component.process_iteration()
+        component.flush()
+
+        content = log_file.read_text()
+        assert "cpu.event_handler:handle_webhook:42 With metadata" in content
+
+    def test_level_filtering_respected(self, tmp_path: Path) -> None:
+        """Test messages below configured level are not written."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "INFO"},
+        )
+        component.initialize()
+
+        msg = Message(
+            type=MessageType.LOG,
+            payload={"level": logging.DEBUG, "message": "Too detailed"},
+        )
+        queue.put(msg)
+        component.process_iteration()
+        component.flush()
+
+        assert "Too detailed" not in log_file.read_text()
+
+    def test_logger_does_not_propagate(self, tmp_path: Path) -> None:
+        """Test internal logger has propagation disabled to prevent feedback loop."""
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "DEBUG"},
+        )
+        component.initialize()
+
+        assert logging.getLogger("cpu.logging").propagate is False
+
+    def test_uses_compressing_rotating_file_handler(self, tmp_path: Path) -> None:
+        """Test LoggingComponent uses CompressingRotatingFileHandler."""
+        from cpu.logging.rotation import CompressingRotatingFileHandler
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={"file": str(log_file), "level": "INFO"},
+        )
+        component.initialize()
+
+        assert isinstance(component._file_handler, CompressingRotatingFileHandler)
+
+    def test_rotation_config_applied(self, tmp_path: Path) -> None:
+        """Test max_bytes and backup_count are read from config."""
+        from cpu.logging.rotation import CompressingRotatingFileHandler
+
+        log_file = tmp_path / "test.log"
+        queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        component = LoggingComponent(
+            name="logger",
+            log_queue=queue,
+            config={
+                "file": str(log_file),
+                "level": "INFO",
+                "max_bytes": 1024,
+                "backup_count": 3,
+            },
+        )
+        component.initialize()
+
+        assert isinstance(component._file_handler, CompressingRotatingFileHandler)
+        assert component._file_handler.maxBytes == 1024
+        assert component._file_handler.backupCount == 3

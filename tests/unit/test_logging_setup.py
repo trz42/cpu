@@ -9,12 +9,13 @@ Tests for logging setup.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pytest
 
-from cpu.config.config import Config
-from cpu.logging.setup import TRACE, configure_logging
+from cpu.logging.queue_handler import QueueLoggingHandler
+from cpu.logging.setup import TRACE, configure_queue_logging
+from cpu.messaging.message import Message, MessageType
+from cpu.messaging.queue_thread import ThreadMessageQueue
 
 
 class TestTraceLevel:
@@ -75,111 +76,90 @@ class TestTraceLevel:
         assert caplog.records[1].levelname == "DEBUG"
 
 
-class TestLoggingSetup:
-    """Test logging configuration."""
+class TestConfigureQueueLogging:
+    """Test queue-based logging configuration."""
 
-    def test_configure_logging_creates_file_handler(self, tmp_path: Path) -> None:
-        """Test file handler is created."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: INFO
-""")
+    def test_cpu_logger_gets_queue_handler(self) -> None:
+        """Test the cpu logger is configured with a QueueLoggingHandler."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-        config = Config(config_file=config_file)
-        config.load()
+        configure_queue_logging(log_queue)
 
-        configure_logging(config)
+        cpu_logger = logging.getLogger("cpu")
+        assert len(cpu_logger.handlers) == 1
+        assert isinstance(cpu_logger.handlers[0], QueueLoggingHandler)
 
-        root_logger = logging.getLogger()
-        # should have file handler
-        assert any(isinstance(handler, logging.FileHandler) for handler in root_logger.handlers)
+    def test_log_message_lands_in_queue(self) -> None:
+        """Test a log call on a cpu.* logger ends up in the queue."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-    def test_configure_logging_sets_levels(self, tmp_path: Path) -> None:
-        """Test logging level is set."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: DEBUG
-""")
+        configure_queue_logging(log_queue)
 
-        config = Config(config_file=config_file)
-        config.load()
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Hello queue")
 
-        configure_logging(config)
+        msg = log_queue.get(timeout=1)
+        assert msg.type == MessageType.LOG
+        assert "Hello queue" in msg.payload["message"]
+        assert msg.payload["name"] == "cpu.some.module"
 
-        root_logger = logging.getLogger()
-        assert root_logger.level == logging.DEBUG
+    def test_existing_handlers_replaced(self) -> None:
+        """Test previously configured handlers are removed."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-    def test_configure_logging_hierarchical_loggers(self, tmp_path: Path) -> None:
-        """Test hierarchical logger levels."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: WARNING
-    loggers:
-      cpu.timer: DEBUG
-      cpu.job_manager: INFO
-""")
+        cpu_logger = logging.getLogger("cpu")
+        cpu_logger.addHandler(logging.NullHandler())
+        cpu_logger.addHandler(logging.NullHandler())
 
-        config = Config(config_file=config_file)
-        config.load()
+        configure_queue_logging(log_queue)
 
-        configure_logging(config)
+        assert len(cpu_logger.handlers) == 1
+        assert isinstance(cpu_logger.handlers[0], QueueLoggingHandler)
 
-        timer_logger = logging.getLogger("cpu.timer")
-        job_logger = logging.getLogger("cpu.job_manager")
+    def test_no_propagation_to_root(self) -> None:
+        """Test cpu logger does not propagate to root logger."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-        assert timer_logger.level == logging.DEBUG
-        assert job_logger.level == logging.INFO
+        configure_queue_logging(log_queue)
 
-    def test_configure_logging_uses_format_from_config(self, tmp_path: Path) -> None:
-        """Test custom log format is applied."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: INFO
-    format: "%(levelname)s - %(message)s"
-""")
+        cpu_logger = logging.getLogger("cpu")
+        assert cpu_logger.propagate is False
 
-        config = Config(config_file=config_file)
-        config.load()
+    def test_level_respected(self) -> None:
+        """Test messages below the configured level are not queued."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-        # clear existing handlers (pytest adds its own)
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
+        configure_queue_logging(log_queue, level=logging.WARNING)
 
-        configure_logging(config)
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Filtered out")
+        logger.warning("Passes through")
 
-        file_handlers = [handler for handler in root_logger.handlers if isinstance(handler, logging.FileHandler)]
-        assert len(file_handlers) > 0
+        msg = log_queue.get(timeout=1)
+        assert "Passes through" in msg.payload["message"]
+        assert log_queue.empty()
 
-        formatter = file_handlers[0].formatter
-        assert formatter is not None
-        assert formatter._fmt == "%(levelname)s - %(message)s"
+    def test_trace_level_supported(self) -> None:
+        """Test TRACE level messages flow through when configured."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
 
-    def test_configure_logging_with_trace_level(self, tmp_path: Path) -> None:
-        """Test TRACE level can be configured."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
-bot:
-  logging:
-    file: logs/cpu.log
-    level: TRACE
-""")
+        configure_queue_logging(log_queue, level=TRACE)
 
-        config = Config(config_file=config_file)
-        config.load()
+        logger = logging.getLogger("cpu.some.module")
+        logger.log(TRACE, "Trace through queue")
 
-        configure_logging(config)
+        msg = log_queue.get(timeout=1)
+        assert msg.payload["level"] == TRACE
+        assert "Trace through queue" in msg.payload["message"]
 
-        root_logger = logging.getLogger()
-        assert root_logger.level == TRACE
+    def test_source_component_set(self) -> None:
+        """Test the source component name is attached to messages."""
+        log_queue: ThreadMessageQueue[Message] = ThreadMessageQueue()
+
+        configure_queue_logging(log_queue, source_component="event_handler")
+
+        logger = logging.getLogger("cpu.some.module")
+        logger.info("Tagged message")
+
+        msg = log_queue.get(timeout=1)
+        assert msg.source == "event_handler"

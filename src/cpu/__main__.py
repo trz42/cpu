@@ -19,7 +19,7 @@ from cpu import __version__
 from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config, ConfigError, ConfigValidationError
 from cpu.logging.component import LoggingComponent
-from cpu.logging.setup import configure_logging
+from cpu.logging.setup import TRACE, configure_queue_logging
 from cpu.messaging.message import Message
 from cpu.messaging.queue_thread import ThreadMessageQueue
 
@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 def create_orchestrator(config: Config) -> Orchestrator:
     """
     Create and configure orchestrator with all components.
+
+    Creates the LoggingComponent first and immediately switches all
+    cpu.* logging to the queue, so subsequent component registration
+    and initialization logs are captured by the LoggingComponent.
+    Messages buffer in the queue until start_all() runs the component.
 
     Args:
         config: Configuration object
@@ -43,9 +48,21 @@ def create_orchestrator(config: Config) -> Orchestrator:
     log_component = LoggingComponent(
         name="logger",
         log_queue=log_queue,
-        config=config.get("bot.logging", {}),
+        config=config.get("bot.logging", {}),  # plain sub-dict, no prefix
     )
     orchestrator.register(log_component)
+
+    # switch all cpu.* logging to the queue immediately
+    # messages buffer here until LoggingComponent thread starts
+    log_level_str: str = config.get("bot.logging.level", "INFO")
+    log_level: int = TRACE if log_level_str.upper() == "TRACE" else getattr(
+        logging, log_level_str.upper(), logging.INFO
+    )
+    configure_queue_logging(
+        log_queue,
+        source_component="cpu",
+        level=log_level,
+    )
 
     # TODO register components as they're implemented
     # orchestrator.register(EventHandlerComponent(...))
@@ -168,10 +185,10 @@ def print_banner(banner: str, config: Config | None = None) -> None:
     """
     # check if terminal effects are enabled in config
     enable_effects = False
-    effect_name = "Slide"
+    effect_name = "Beams"
     if config is not None:
         enable_effects = config.get("bot.banner_effects", False)
-        effect_name = config.get("bot.banner_effect_type", "Slide")
+        effect_name = config.get("bot.banner_effect_type", "Beams")
 
     # try to use terminal effects if enabled and available
     if enable_effects:
@@ -302,8 +319,11 @@ def main() -> int:
         # validate configuration
         validate_configuration(config)
 
-        # IMPORTANT: configure logging BEFORE components start
-        configure_logging(config)
+        # Phase 1: console-only logging during startup
+        logging.basicConfig(
+            level=logging.WARNING,
+            format="%(levelname)s: %(message)s",
+        )
         logger.info("CPU Bot starting...")
 
         # create banner header
@@ -316,7 +336,8 @@ def main() -> int:
         # add startup information
         banner += create_startup_info(config_file, config, verbose=args.extended_startup_info)
 
-        # create and run orchestrator
+        # Phase 2: create orchestrator - switches cpu.* logging to queue
+        # inside create_orchestrator()
         orchestrator = create_orchestrator(config)
         orchestrator.initialize_all()
 

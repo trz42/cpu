@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from cpu.components.base import ComponentState, HealthStatus, RunnableComponent
+from cpu.logging.queue_handler import suppress_queue_logging
+from cpu.logging.rotation import CompressingRotatingFileHandler
 from cpu.logging.sanitizer import LogSanitizer
 from cpu.messaging.interfaces import MessageQueueInterface, QueueEmptyError
 from cpu.messaging.message import Message, MessageType
@@ -31,7 +33,7 @@ class LoggingComponent(RunnableComponent):
         super().__init__(name, config)
         self._queue = log_queue
         self._sanitizer = LogSanitizer()
-        self._file_handler: logging.FileHandler | None = None
+        self._file_handler: CompressingRotatingFileHandler | None = None
         self._logger: logging.Logger | None = None
 
     def initialize(self) -> None:
@@ -39,19 +41,25 @@ class LoggingComponent(RunnableComponent):
         # setup flush handler for flush
         self.setup_flush_signal()
 
-        log_file = self.config.get("bot.logging.file", "logs/cpu.log")
-        log_level = self.config.get("bot.logging.level", "INFO")
+        log_file = self.config.get("file", "logs/cpu.log")
+        log_level = self.config.get("level", "INFO")
         log_format = self.config.get(
-            "bot.logging.format",
+            "format",
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
+        max_bytes = self.config.get("max_bytes", 10 * 1024 * 1024)  # 10 MB
+        backup_count = self.config.get("backup_count", 5)
 
         # create log directory
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # create file handler
-        self._file_handler = logging.FileHandler(log_file)
+        # create rotating file handler with compression
+        self._file_handler = CompressingRotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+        )
         self._file_handler.setLevel(logging.DEBUG)
 
         # create formatter
@@ -62,13 +70,19 @@ class LoggingComponent(RunnableComponent):
         self._logger = logging.getLogger("cpu.logging")
         self._logger.addHandler(self._file_handler)
         self._logger.setLevel(getattr(logging, log_level.upper()))
+        # must not propagate to cpu logger - that has the QueueLoggingHandler
+        # which would create a feedback loop on every write
+        self._logger.propagate = False
 
         self.state = ComponentState.INITIALIZED
 
     def process_iteration(self) -> None:
         """Process one log message from queue."""
         try:
-            msg = self._queue.get(timeout=0.1)
+            # suppress queue logging around our own queue operation to
+            # prevent a feedback loop (get() logs at TRACE level)
+            with suppress_queue_logging():
+                msg = self._queue.get(timeout=0.1)
 
             # verif message type
             if msg.type != MessageType.LOG:
@@ -78,13 +92,26 @@ class LoggingComponent(RunnableComponent):
             # extract log info
             level = msg.payload.get("level", logging.INFO)
             message = msg.payload.get("message", "")
+            name = msg.payload.get("name", "cpu")
+            func = msg.payload.get("funcName", "")
+            lineno = msg.payload.get("lineno", 0)
 
             # sanitize message
             sanitized = self._sanitizer.sanitize(message)
 
-            # write to log
-            if self._logger:
-                self._logger.log(level, sanitized)
+            # write to log, preserving original metadata
+            if self._logger and self._logger.isEnabledFor(level):
+                record = logging.LogRecord(
+                    name=name,
+                    level=level,
+                    pathname="",
+                    lineno=lineno,
+                    msg=sanitized,
+                    args=(),
+                    exc_info=None,
+                    func=func,
+                )
+                self._logger.handle(record)
 
         except QueueEmptyError:
             # no messages, continue
