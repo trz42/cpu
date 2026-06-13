@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -549,6 +549,37 @@ secrets:
         with pytest.raises(SecretNotFoundError):
             manager.get_github_secrets(context)
 
+    def test_get_github_secrets_with_installation_id(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test get_github_secrets loads optional installation_id ref."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  github:
+    - name: default
+      context: {}
+      refs:
+        app_id: github.default.app_id
+        private_key: github.default.private_key
+        webhook_secret: github.default.webhook_secret
+        installation_id: github.default.installation_id
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        monkeypatch.setenv("CPU_SECRETS__GITHUB__DEFAULT__APP_ID", "12345")
+        monkeypatch.setenv("CPU_SECRETS__GITHUB__DEFAULT__PRIVATE_KEY", "fake-key")
+        monkeypatch.setenv("CPU_SECRETS__GITHUB__DEFAULT__WEBHOOK_SECRET", "secret")
+        monkeypatch.setenv("CPU_SECRETS__GITHUB__DEFAULT__INSTALLATION_ID", "67890")
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        context = SecretContext(platform="github")
+        secrets = manager.get_github_secrets(context)
+
+        assert secrets.app_id == "12345"
+
     def test_secrets_cached_after_first_load(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -629,6 +660,30 @@ secrets:
         secrets2 = manager.get_gitlab_secrets(context)
         assert secrets2 is secrets
 
+    def test_get_gitlab_secrets_wraps_secret_not_found(self, tmp_path: Path) -> None:
+        """Test get_gitlab_secrets wraps SecretNotFoundError from missing refs."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  gitlab:
+    - name: default
+      context: {}
+      refs:
+        token: gitlab.token
+        webhook_secret: gitlab.webhook
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        context = SecretContext(platform="gitlab")
+
+        with pytest.raises(SecretNotFoundError, match="Failed to load GitLab secrets for config 'default'"):
+            manager.get_gitlab_secrets(context)
+
     def test_get_s3_secrets(self, tmp_path: Path) -> None:
         """Test get_s3_secrets retrieves and caches secrets."""
         # Setup secrets
@@ -673,6 +728,30 @@ secrets:
         # Test cache hit
         secrets2 = manager.get_s3_secrets(context)
         assert secrets2 is secrets
+
+    def test_get_s3_secrets_wraps_secret_not_found(self, tmp_path: Path) -> None:
+        """Test get_s3_secrets wraps SecretNotFoundError from missing refs."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  s3:
+    - name: default
+      context: {}
+      refs:
+        access_key_id: s3.access_key
+        secret_access_key: s3.secret_key
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        context = SecretContext(cvmfs_repo="software.eessi.io")
+
+        with pytest.raises(SecretNotFoundError, match="Failed to load S3 secrets for config 'default'"):
+            manager.get_s3_secrets(context)
 
     def test_get_s3_secrets_optional_fields(self, tmp_path: Path) -> None:
         """Test get_s3_secrets with only required fields."""
@@ -745,6 +824,26 @@ secrets:
         # Test cache hit
         secrets2 = manager.get_smee_secrets()
         assert secrets2 is secrets
+
+    def test_get_smee_secrets_wraps_secret_not_found(self, tmp_path: Path) -> None:
+        """Test get_smee_secrets wraps SecretNotFoundError from missing refs."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+secrets:
+  smee:
+    - name: default
+      refs:
+        channel_url: smee.channel_url
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        with pytest.raises(SecretNotFoundError, match="Failed to load Smee secrets for config 'default'"):
+            manager.get_smee_secrets()
 
     def test_get_gitlab_secrets_no_matching_config(self, tmp_path: Path) -> None:
         """Test get_gitlab_secrets raises error when no config matches."""
@@ -891,6 +990,42 @@ secrets:
 
         assert len(manager.sources) == 1
         assert manager.sources[0] is custom_source
+
+    def test_secret_manager_creates_default_audit_logger(self, tmp_path: Path) -> None:
+        """Test SecretManager creates a default SecretsAuditLogger when none provided."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("bot:\n  num_workers: 1")
+
+        config = Config(config_file)
+        config.load()
+
+        with patch("cpu.config.secrets.SecretsAuditLogger") as mock_audit_cls:
+            manager = SecretManager(config)
+
+        mock_audit_cls.assert_called_once_with()
+        assert manager.audit is mock_audit_cls.return_value
+
+    def test_create_sources_with_file_source(self, tmp_path: Path) -> None:
+        """Test _create_sources_from_config creates FileSecretSource for 'file' type."""
+        secrets_dir = tmp_path / "secrets"
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(f"""
+bot:
+  num_workers: 1
+secrets:
+  sources:
+    - type: file
+      secrets_dir: {secrets_dir}
+    - type: vault
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        audit_logger = SecretsAuditLogger(audit_file=tmp_path / "audit.log")
+        manager = SecretManager(config, audit_logger=audit_logger)
+
+        assert any(isinstance(s, FileSecretSource) for s in manager.sources)
 
 
 class TestSecretsLogging:
