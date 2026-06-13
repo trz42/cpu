@@ -63,7 +63,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Upload source and wheel
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0    a # v7.0.1
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: dist-package
         path: |
