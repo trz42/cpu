@@ -148,30 +148,8 @@ class Message:
 
 
 # Type aliases for common message payloads
-WebhookPayload = dict[str, Any]
 JobPayload = dict[str, Any]
 TaskPayload = dict[str, Any]
-
-
-def create_webhook_message(
-    webhook_data: WebhookPayload, platform: str = "github"
-) -> Message:
-    """
-    Create a webhook message.
-
-    Args:
-        webhook_data: Raw webhook data from platform
-        platform: Platform name (github, gitlab, etc.)
-
-    Returns:
-        Message containing webhook data
-    """
-    logger.info(f"Creating webhook message from platform: {platform}")
-    return Message(
-        type=MessageType.WEBHOOK,
-        payload={"platform": platform, "data": webhook_data},
-        source="SmeeClient",
-    )
 
 
 def create_job_notification(

@@ -22,7 +22,6 @@ from cpu.messaging.message import (
     MessageType,
     create_job_notification,
     create_status_check_message,
-    create_webhook_message,
 )
 
 
@@ -311,43 +310,6 @@ class TestMessageMethods:
 class TestMessageFactoryFunctions:
     """Tests for message factory functions."""
 
-    def test_create_webhook_message_default_platform(self) -> None:
-        """Test webhook message creation with default platform."""
-        webhook_data = {"action": "opened", "number": 123}
-
-        msg = create_webhook_message(webhook_data)
-
-        assert msg.type == MessageType.WEBHOOK
-        assert msg.payload["platform"] == "github"
-        assert msg.payload["data"] == webhook_data
-        assert msg.source == "SmeeClient"
-
-    def test_create_webhook_message_custom_platform(self) -> None:
-        """Test webhook message creation with custom platform."""
-        webhook_data = {"action": "merge"}
-
-        msg = create_webhook_message(webhook_data, platform="gitlab")
-
-        assert msg.type == MessageType.WEBHOOK
-        assert msg.payload["platform"] == "gitlab"
-        assert msg.payload["data"] == webhook_data
-        assert msg.source == "SmeeClient"
-
-    def test_create_webhook_message_complex_data(self) -> None:
-        """Test webhook message with complex webhook data."""
-        webhook_data = {
-            "action": "opened",
-            "pull_request": {
-                "number": 123,
-                "title": "Test PR",
-                "user": {"login": "testuser"}
-            }
-        }
-
-        msg = create_webhook_message(webhook_data)
-
-        assert msg.payload["data"]["pull_request"]["number"] == 123
-
     def test_create_job_notification_minimal(self) -> None:
         """Test job notification with minimal arguments."""
         msg = create_job_notification(job_id="slurm_123")
@@ -382,20 +344,17 @@ class TestMessageFactoryFunctions:
 
     def test_factory_functions_create_valid_messages(self) -> None:
         """Test all factory functions create valid Message objects."""
-        webhook = create_webhook_message({"test": 1})
         job = create_job_notification("job_1")
         status = create_status_check_message()
 
         # All should be Message instances
-        assert isinstance(webhook, Message)
         assert isinstance(job, Message)
         assert isinstance(status, Message)
 
         # All should have unique IDs
-        assert webhook.id != job.id != status.id
+        assert job.id != status.id
 
         # All should have timestamps
-        assert webhook.timestamp > 0
         assert job.timestamp > 0
         assert status.timestamp > 0
 
@@ -548,15 +507,6 @@ class TestMessageLogging:
 
         assert "Deserializing message" in caplog.text
         assert "test-id-" in caplog.text
-
-    def test_factory_webhook_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Test webhook factory logs at INFO level."""
-        caplog.set_level(logging.INFO)
-
-        create_webhook_message({"test": 1}, platform="github")
-
-        assert "Creating webhook message" in caplog.text
-        assert "github" in caplog.text
 
     def test_factory_job_notification_logs_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test job notification factory logs at INFO level."""
