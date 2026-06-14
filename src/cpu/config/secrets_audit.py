@@ -29,7 +29,7 @@ class SecretsAuditLogger:
 
     def __init__(
         self,
-        audit_file: Path = Path("/var/log/cpu/secrets_audit.log"),
+        audit_file: Path = Path("logs/secrets_audit.log"),
         enable_console: bool = False,
     ) -> None:
         """
