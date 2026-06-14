@@ -11,8 +11,11 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from cpu.__main__ import create_orchestrator, main, run_orchestrator
 from cpu.config.config import Config
+from cpu.config.secrets_audit import SecretsAuditLogger
 
 
 class TestCreateOrchestrator:
@@ -32,6 +35,38 @@ class TestCreateOrchestrator:
         # increase right-hand value with increasing number of components
         # TODO maybe this should be configurable and then compare against configured number
         assert len(orchestrator._components) == 1
+
+    def test_create_orchestrator_registers_smee_client_when_configured(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test SmeeClientComponent is registered when secrets.smee is configured."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 2
+secrets:
+  smee:
+    - name: default
+      context: {}
+      refs:
+        channel_url: smee.channel_url
+""")
+        monkeypatch.setenv("CPU_SECRETS__SMEE__CHANNEL_URL", "https://smee.io/test-channel")
+
+        # Avoid SecretsAuditLogger's default /var/log/cpu, which may not be writable.
+        audit_file = tmp_path / "secrets_audit.log"
+        monkeypatch.setattr(
+            "cpu.config.secrets.SecretsAuditLogger",
+            lambda *args, **kwargs: SecretsAuditLogger(audit_file=audit_file),  # noqa: ARG005
+        )
+
+        config = Config(config_file=config_file)
+        config.load()
+
+        orchestrator = create_orchestrator(config)
+
+        assert "smee" in orchestrator._components
+        assert len(orchestrator._components) == 2
 
 
 class TestRunOrchestrator:
