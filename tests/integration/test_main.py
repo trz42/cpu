@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 
 from cpu.__main__ import create_orchestrator
 from cpu.config.config import Config
 from cpu.logging.queue_handler import QueueLoggingHandler
+from cpu.messaging.interfaces import QueueEmptyError
+from cpu.messaging.message import MessageType
 
 
 class TestMainLoggingWiring:
@@ -62,7 +65,11 @@ bot:
             h for h in cpu_logger.handlers if isinstance(h, QueueLoggingHandler)
         )
 
-        from cpu.messaging.message import MessageType
+        # Drain any messages queued during create_orchestrator() itself
+        # (e.g. component initialization logs).
+        with contextlib.suppress(QueueEmptyError):
+            while True:
+                handler._queue.get(block=False)
 
         cpu_logger.info("Post-orchestrator log")
 

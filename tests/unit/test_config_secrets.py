@@ -1002,8 +1002,26 @@ secrets:
         with patch("cpu.config.secrets.SecretsAuditLogger") as mock_audit_cls:
             manager = SecretManager(config)
 
-        mock_audit_cls.assert_called_once_with()
+        mock_audit_cls.assert_called_once_with(audit_file=Path("logs/secrets_audit.log"))
         assert manager.audit is mock_audit_cls.return_value
+
+    def test_secret_manager_audit_logger_path_configurable(self, tmp_path: Path) -> None:
+        """Test secrets.audit_log_file overrides the default audit log path."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+bot:
+  num_workers: 1
+secrets:
+  audit_log_file: custom/audit.log
+""")
+
+        config = Config(config_file)
+        config.load()
+
+        with patch("cpu.config.secrets.SecretsAuditLogger") as mock_audit_cls:
+            SecretManager(config)
+
+        mock_audit_cls.assert_called_once_with(audit_file=Path("custom/audit.log"))
 
     def test_create_sources_with_file_source(self, tmp_path: Path) -> None:
         """Test _create_sources_from_config creates FileSecretSource for 'file' type."""

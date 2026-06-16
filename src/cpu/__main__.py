@@ -18,10 +18,13 @@ from typing import NoReturn
 from cpu import __version__
 from cpu.components.orchestrator import Orchestrator
 from cpu.config.config import Config, ConfigError, ConfigValidationError
+from cpu.config.secrets import SecretManager
 from cpu.logging.component import LoggingComponent
 from cpu.logging.setup import TRACE, configure_queue_logging
+from cpu.messaging.bus_thread import ThreadMessageBus
 from cpu.messaging.message import Message
 from cpu.messaging.queue_thread import ThreadMessageQueue
+from cpu.smee.client import SmeeClientComponent
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +67,25 @@ def create_orchestrator(config: Config) -> Orchestrator:
         level=log_level,
     )
 
+    # shared message bus for inter-component pub/sub (e.g. webhook_events)
+    message_bus: ThreadMessageBus[Message] = ThreadMessageBus()
+
+    # Smee client (optional, dev-only): forwards webhook events from a
+    # smee.io channel onto the "webhook_events" topic
+    if config.get("secrets.smee"):
+        secrets_manager = SecretManager(config)
+        smee_client = SmeeClientComponent(
+            name="smee",
+            message_bus=message_bus,
+            secrets_manager=secrets_manager,
+        )
+        orchestrator.register(smee_client)
+    else:
+        logger.info("No Smee configuration found; SmeeClientComponent not registered")
+
     # TODO register components as they're implemented
     # orchestrator.register(EventHandlerComponent(...))
     # orchestrator.register(JobManagerComponent(...))
-    # orchestrator.register(SmeeClientComponent(...))
     # orchestrator.register(TimerComponent(...))
     # orchestrator.register(WorkerPoolComponent(...))
 

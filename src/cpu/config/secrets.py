@@ -373,7 +373,7 @@ class SecretManager:
 
         # Initialize audit logger
         if audit_logger is None:
-            audit_logger = SecretsAuditLogger()
+            audit_logger = self._create_audit_logger()
         self.audit = audit_logger
 
         # Initialize sources
@@ -388,6 +388,21 @@ class SecretManager:
         self._smee_cache: dict[str, SmeeSecrets] = {}
 
         logger.info(f"Initialized SecretManager with {len(self.sources)} sources")
+
+    def _create_audit_logger(self) -> SecretsAuditLogger:
+        """
+        Create the secrets audit logger from configuration.
+
+        Reads ``secrets.audit_log_file`` (defaults to ``logs/secrets_audit.log``,
+        relative to the current working directory) to avoid the historical
+        ``/var/log/cpu/secrets_audit.log`` default, which typically requires
+        root privileges and is not writable in most deployments.
+
+        Returns:
+            Configured SecretsAuditLogger
+        """
+        audit_log_file = self.config.get("secrets.audit_log_file", "logs/secrets_audit.log")
+        return SecretsAuditLogger(audit_file=Path(audit_log_file))
 
     def _create_encryption_provider(self) -> EncryptionProvider:
         """Create encryption provider from configuration."""
