@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from cpu.__main__ import main
+from cpu.__main__ import main, print_banner
 
 
 class TestMainCLI:
@@ -405,6 +405,13 @@ bot:
         captured = capsys.readouterr()
         assert "CPU" in captured.out
 
+    def test_print_banner_without_config(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test print_banner with no config defaults to plain banner."""
+        print_banner("TEST BANNER")
+
+        captured = capsys.readouterr()
+        assert "TEST BANNER" in captured.out
+
 
 class TestExtendedStartupInfo:
     """Test extended startup info flag."""
@@ -600,7 +607,7 @@ bot:
 
         mock_terminal = MagicMock()
         mock_terminal.__enter__ = lambda self: self
-        mock_terminal.__exit__ = lambda: None
+        mock_terminal.__exit__ = lambda _self, _exc_type, _exc_val, _exc_tb: None
         mock_terminal.print = MagicMock()
 
         mock_effect_instance = MagicMock()

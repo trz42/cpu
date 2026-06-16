@@ -351,6 +351,19 @@ class TestOrchestratorSignalHandling:
         assert comp is not None
         assert comp.get_state() == ComponentState.STOPPED
 
+    def test_signal_handler_sets_shutdown_and_stops_components(self) -> None:
+        """Test _signal_handler sets shutdown flag and stops components."""
+        import signal as signal_module
+        from unittest.mock import patch
+
+        orchestrator = Orchestrator()
+
+        with patch.object(orchestrator, "stop_all") as mock_stop_all:
+            orchestrator._signal_handler(signal_module.SIGTERM, None)
+
+        assert orchestrator._shutdown_requested is True
+        mock_stop_all.assert_called_once_with(timeout=10)
+
 
 class TestOrchestratorHealthMonitoring:
     """Test health monitoring in orchestrator."""
