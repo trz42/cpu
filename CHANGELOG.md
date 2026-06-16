@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.0.10] - 2026-06-16
+
+### Added
+
+- `SmeeClientComponent`: new component with unit tests (#61)
+- Python 3.13 and 3.14 to the test matrix (#60)
+
+### Changed
+
+- `SmeeClientComponent` is now used in `__main__.py`, with integration
+  tests added/fixed (#63)
+- pinned CI versions updated; GitHub Action warnings about deprecated
+  Node versions fixed (#60)
+- pytest coverage increased to 100% (#60)
+- `terminaltexteffects` bumped to v0.15.0 (#60)
+
+### Fixed
+
+- location of `secrets_audit.log` made configurable, fixing fragile
+  `/var/log/cpu` default for non-root deployments (#62, via #63)
+
+### Removed
+
+- unused `create_webhook_message()` and associated tests (#61)
+
 ## [0.0.9] - 2026-06-13
 
 ### Added
