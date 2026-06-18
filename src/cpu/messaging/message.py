@@ -41,6 +41,7 @@ class MessageType(Enum):
 
     # Worker-related
     PROCESS_FINISHED_JOB = "process_finished_job"
+    TASK_REQUEST = "task_request"
     TASK_COMPLETE = "task_complete"
 
     # Control messages

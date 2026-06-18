@@ -154,7 +154,7 @@ class RunnableComponent(ComponentInterface):
     def start(self) -> None:
         """Start the component's main loop."""
         if self.state != ComponentState.INITIALIZED:
-            raise RuntimeError(f"Component {self.name} not initialized")
+            raise RuntimeError(f"Component {self.name} not initialized (state={self.state})")
 
         self.state = ComponentState.RUNNING
         self._stop_requested = False
