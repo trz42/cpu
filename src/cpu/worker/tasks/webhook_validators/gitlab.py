@@ -39,7 +39,6 @@ from cpu.worker.tasks.webhook_validators.base import (
 
 logger = logging.getLogger(__name__)
 
-# TODO How about using const strings to avoid mispellings?
 _HEADER_EVENT = "X-Gitlab-Event"
 _HEADER_SIGNATURE = "Webhook-Signature"
 _HEADER_TOKEN_LEGACY = "X-Gitlab-Token"
