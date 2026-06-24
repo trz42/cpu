@@ -18,10 +18,10 @@ result.
 from __future__ import annotations
 
 import base64
-from collections.abc import Mapping
 import hashlib
 import hmac
 import json
+from collections.abc import Mapping
 from typing import Any
 from unittest.mock import MagicMock
 

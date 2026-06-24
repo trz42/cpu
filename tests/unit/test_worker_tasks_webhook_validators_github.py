@@ -19,6 +19,7 @@ import hashlib
 import hmac
 
 import pytest
+
 from cpu.worker.tasks.webhook_validators.base import WebhookValidationError
 from cpu.worker.tasks.webhook_validators.github import GitHubWebhookValidator
 
