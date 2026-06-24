@@ -18,6 +18,7 @@ result.
 from __future__ import annotations
 
 import base64
+from collections.abc import Mapping
 import hashlib
 import hmac
 import json
@@ -159,6 +160,29 @@ class TestWebhookValidationHandlerGitLab:
 
 class TestWebhookValidationHandlerErrors:
     """Tests for malformed input and missing secret configuration."""
+
+    def test_platform_without_secret_lookup_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from cpu.worker.tasks.webhook_validators.base import PlatformWebhookValidator, get_header
+
+        class _StubValidator(PlatformWebhookValidator):
+            platform = "stub_platform"
+
+            @classmethod
+            def matches(cls, headers: Mapping[str, str]) -> bool:
+                return get_header(headers, "X-Stub-Platform") is not None
+
+            def validate(self, headers: Mapping[str, str], raw_body: bytes, secret: str) -> None:
+                pass  # signature always passes; we're testing the secret lookup branch
+
+        monkeypatch.setattr(
+            "cpu.worker.tasks.webhook_validators.base.WEBHOOK_VALIDATORS",
+            [_StubValidator],
+        )
+        manager = MagicMock(spec=SecretManager)
+        validator = WebhookValidationHandler(secrets_manager=manager)
+
+        with pytest.raises(WebhookValidationError):
+            validator.handle({"headers": {"X-Stub-Platform": "1"}, "body": {}})
 
     def test_unrecognized_platform_raises_unsupported(self) -> None:
         manager = MagicMock(spec=SecretManager)
